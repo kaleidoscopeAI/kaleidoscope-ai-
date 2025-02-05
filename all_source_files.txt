@@ -1,0 +1,3417 @@
+===== START OF ./ethics/global_ethics_system.c =====
+#include "global_ethics_system.h"
+#include <stdlib.h>
+#include <stdio.h>
+
+// Initialize the Global Ethics System
+GlobalEthicsSystem* init_global_ethics_system(uint8_t threshold) {
+    GlobalEthicsSystem* system = (GlobalEthicsSystem*)malloc(sizeof(GlobalEthicsSystem));
+    if (!system) return NULL;
+
+    system->ethical_threshold = threshold;
+    printf("Global Ethics System initialized with threshold %u.\n", threshold);
+    return system;
+}
+
+// Evaluate an Action Based on Ethics
+uint8_t evaluate_action(GlobalEthicsSystem* system, EthicalDecision* decision) {
+    if (!system || !decision) return 0;
+
+    // Compute overall ethical score
+    uint8_t total_score = (decision->impact_on_individual +
+                           decision->impact_on_collective +
+                           decision->resource_fairness) / 3;
+
+    printf("Evaluating ethical score: %u (Threshold: %u)\n", total_score, system->ethical_threshold);
+
+    return total_score >= system->ethical_threshold;
+}
+
+// Enforce Ethical Guidelines on Tasks
+void enforce_ethics(GlobalEthicsSystem* system, uint64_t node_id, EthicalDecision* decision) {
+    if (!system || !decision) return;
+
+    if (evaluate_action(system, decision)) {
+        printf("Node %lu: Task approved based on ethical guidelines.\n", node_id);
+    } else {
+        printf("Node %lu: Task rejected due to insufficient ethical compliance.\n", node_id);
+    }
+}
+
+// Destroy the Global Ethics System
+void destroy_global_ethics_system(GlobalEthicsSystem* system) {
+    if (system) {
+        free(system);
+        printf("Global Ethics System destroyed.\n");
+    }
+}
+===== END OF ./ethics/global_ethics_system.c =====
+
+===== START OF ./ethics/global_ethics_system.h =====
+#ifndef GLOBAL_ETHICS_SYSTEM_H
+#define GLOBAL_ETHICS_SYSTEM_H
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+// Ethical Decision Structure
+typedef struct {
+    uint8_t impact_on_individual;
+    uint8_t impact_on_collective;
+    uint8_t resource_fairness;
+} EthicalDecision;
+
+// Global Ethics System Structure
+typedef struct {
+    uint8_t ethical_threshold;
+} GlobalEthicsSystem;
+
+// Function Prototypes
+GlobalEthicsSystem* init_global_ethics_system(uint8_t threshold);
+uint8_t evaluate_action(GlobalEthicsSystem* system, EthicalDecision* decision);
+void enforce_ethics(GlobalEthicsSystem* system, uint64_t node_id, EthicalDecision* decision);
+void destroy_global_ethics_system(GlobalEthicsSystem* system);
+
+#endif // GLOBAL_ETHICS_SYSTEM_H
+
+#include "global_ethics_system.h"
+
+// Initialize the Global Ethics System
+GlobalEthicsSystem* init_global_ethics_system(uint8_t threshold) {
+    GlobalEthicsSystem* system = (GlobalEthicsSystem*)malloc(sizeof(GlobalEthicsSystem));
+    if (!system) return NULL;
+
+    system->ethical_threshold = threshold;
+    return system;
+}
+
+// Evaluate an Action Based on Ethics
+uint8_t evaluate_action(GlobalEthicsSystem* system, EthicalDecision* decision) {
+    if (!system || !decision) return 0;
+
+    // Compute overall ethical score
+    uint8_t total_score = (decision->impact_on_individual +
+                           decision->impact_on_collective +
+                           decision->resource_fairness) / 3;
+
+    return total_score >= system->ethical_threshold;
+}
+
+// Enforce Ethical Guidelines
+void enforce_ethics(GlobalEthicsSystem* system, uint64_t node_id, EthicalDecision* decision) {
+    if (!system || !decision) return;
+
+    if (evaluate_action(system, decision)) {
+        printf("Node %lu: Task approved (Ethical Score: %u).\n", node_id, system->ethical_threshold);
+    } else {
+        printf("Node %lu: Task rejected (Ethical Score: %u below threshold).\n", node_id, system->ethical_threshold);
+    }
+}
+
+// Destroy the Global Ethics System
+void destroy_global_ethics_system(GlobalEthicsSystem* system) {
+    if (system) {
+        free(system);
+    }
+}
+===== END OF ./ethics/global_ethics_system.h =====
+
+===== START OF ./optimization/resource_optimization.c =====
+#include <stdio.h>
+#include <stdlib.h>
+#include "resource_optimization.h"
+
+// Initialize the Resource Optimizer
+ResourceOptimizer* init_resource_optimizer(uint64_t total_energy, uint64_t max_memory) {
+    ResourceOptimizer* optimizer = (ResourceOptimizer*)malloc(sizeof(ResourceOptimizer));
+    if (!optimizer) {
+        printf("Error: Failed to allocate memory for Resource Optimizer.\n");
+        return NULL;
+    }
+
+    optimizer->total_energy = total_energy;
+    optimizer->available_energy = total_energy;
+    optimizer->max_memory = max_memory;
+    optimizer->used_memory = 0;
+
+    printf("Resource Optimizer initialized with total energy: %lu, max memory: %lu.\n",
+           total_energy, max_memory);
+    return optimizer;
+}
+
+// Optimize Energy Distribution
+void allocate_energy(ResourceOptimizer* optimizer, Node** nodes, uint64_t node_count) {
+    if (!optimizer || node_count == 0) return;
+
+    uint64_t equal_energy = optimizer->available_energy / node_count;
+    printf("Allocating energy: Each node receives %lu units.\n", equal_energy);
+
+    for (uint64_t i = 0; i < node_count; i++) {
+        if (nodes[i]) {
+            nodes[i]->energy += equal_energy;
+            optimizer->available_energy -= equal_energy;
+            printf("Node %lu energy updated to %lu.\n", nodes[i]->id, nodes[i]->energy);
+        }
+    }
+}
+
+// Optimize Memory Usage
+void allocate_memory(ResourceOptimizer* optimizer, uint64_t memory_request) {
+    if (!optimizer) return;
+
+    if (optimizer->used_memory + memory_request > optimizer->max_memory) {
+        printf("Error: Memory request of %lu exceeds available capacity.\n", memory_request);
+        return;
+    }
+
+    optimizer->used_memory += memory_request;
+    printf("Allocated %lu memory. Used memory: %lu / %lu.\n",
+           memory_request, optimizer->used_memory, optimizer->max_memory);
+}
+
+// Deallocate Memory
+void deallocate_memory(ResourceOptimizer* optimizer, uint64_t memory_release) {
+    if (!optimizer || memory_release > optimizer->used_memory) return;
+
+    optimizer->used_memory -= memory_release;
+    printf("Deallocated %lu memory. Used memory: %lu / %lu.\n",
+           memory_release, optimizer->used_memory, optimizer->max_memory);
+}
+
+// Reallocate Resources Dynamically
+void optimize_resources(ResourceOptimizer* optimizer, Node** nodes, uint64_t node_count) {
+    if (!optimizer || !nodes) return;
+
+    printf("Optimizing resources dynamically...\n");
+
+    // Energy Redistribution
+    uint64_t active_nodes = 0;
+    for (uint64_t i = 0; i < node_count; i++) {
+        if (nodes[i] && nodes[i]->is_active) active_nodes++;
+    }
+
+    if (active_nodes > 0) {
+        optimizer->available_energy = optimizer->total_energy;
+        allocate_energy(optimizer, nodes, active_nodes);
+    }
+
+    // Memory Adjustment (Example: Free 10% of used memory per cycle)
+    uint64_t memory_to_free = optimizer->used_memory / 10;
+    deallocate_memory(optimizer, memory_to_free);
+}
+
+// Cleanup Resource Optimizer
+void destroy_resource_optimizer(ResourceOptimizer* optimizer) {
+    if (optimizer) {
+        free(optimizer);
+        printf("Resource Optimizer destroyed.\n");
+    }
+}
+===== END OF ./optimization/resource_optimization.c =====
+
+===== START OF ./optimization/resource_optimization.h =====
+#ifndef RESOURCE_OPTIMIZATION_H
+#define RESOURCE_OPTIMIZATION_H
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "node_core.h"
+
+// Resource Optimization Structure
+typedef struct {
+    uint64_t total_energy;
+    uint64_t total_memory;
+    uint64_t allocated_energy;
+    uint64_t allocated_memory;
+} ResourceOptimizer;
+
+// Function Prototypes
+ResourceOptimizer* init_resource_optimizer(uint64_t total_energy, uint64_t total_memory);
+void allocate_resources(ResourceOptimizer* optimizer, Node* node, uint64_t energy_needed, uint64_t memory_needed);
+void release_resources(ResourceOptimizer* optimizer, uint64_t energy_released, uint64_t memory_released);
+void optimize_node_resources(ResourceOptimizer* optimizer, Node* nodes[], uint64_t node_count);
+void destroy_resource_optimizer(ResourceOptimizer* optimizer);
+
+#endif // RESOURCE_OPTIMIZATION_H
+
+#include "resource_optimization.h"
+
+// Initialize the Resource Optimizer
+ResourceOptimizer* init_resource_optimizer(uint64_t total_energy, uint64_t total_memory) {
+    ResourceOptimizer* optimizer = (ResourceOptimizer*)malloc(sizeof(ResourceOptimizer));
+    if (!optimizer) return NULL;
+
+    optimizer->total_energy = total_energy;
+    optimizer->total_memory = total_memory;
+    optimizer->allocated_energy = 0;
+    optimizer->allocated_memory = 0;
+
+    return optimizer;
+}
+
+// Allocate Resources to a Node
+void allocate_resources(ResourceOptimizer* optimizer, Node* node, uint64_t energy_needed, uint64_t memory_needed) {
+    if (!optimizer || !node) return;
+
+    if (optimizer->total_energy - optimizer->allocated_energy >= energy_needed &&
+        optimizer->total_memory - optimizer->allocated_memory >= memory_needed) {
+
+        node->energy += energy_needed;
+        optimizer->allocated_energy += energy_needed;
+
+        node->memory_size += memory_needed;
+        optimizer->allocated_memory += memory_needed;
+
+        printf("Allocated %lu energy and %lu memory to Node %lu.\n", energy_needed, memory_needed, node->id);
+    } else {
+        printf("Insufficient resources for Node %lu.\n", node->id);
+    }
+}
+
+// Release Resources
+void release_resources(ResourceOptimizer* optimizer, uint64_t energy_released, uint64_t memory_released) {
+    if (!optimizer) return;
+
+    optimizer->allocated_energy -= energy_released;
+    optimizer->allocated_memory -= memory_released;
+
+    printf("Released %lu energy and %lu memory.\n", energy_released, memory_released);
+}
+
+// Optimize Resources Across Nodes
+void optimize_node_resources(ResourceOptimizer* optimizer, Node* nodes[], uint64_t node_count) {
+    if (!optimizer || !nodes || node_count == 0) return;
+
+    printf("Optimizing resources across %lu nodes...\n", node_count);
+
+    uint64_t energy_per_node = (optimizer->total_energy - optimizer->allocated_energy) / node_count;
+    uint64_t memory_per_node = (optimizer->total_memory - optimizer->allocated_memory) / node_count;
+
+    for (uint64_t i = 0; i < node_count; i++) {
+        if (nodes[i]->is_active) {
+            allocate_resources(optimizer, nodes[i], energy_per_node, memory_per_node);
+        }
+    }
+}
+
+// Destroy the Resource Optimizer
+void destroy_resource_optimizer(ResourceOptimizer* optimizer) {
+    if (optimizer) {
+        free(optimizer);
+    }
+}
+===== END OF ./optimization/resource_optimization.h =====
+
+===== START OF ./visualization/visualization_tools.h =====
+#ifndef VISUALIZATION_TOOLS_H
+#define VISUALIZATION_TOOLS_H
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+// Visualization Metrics Structure
+typedef struct {
+    uint64_t* energy_levels;
+    uint64_t* task_completions;
+    uint64_t max_cycles;
+    uint64_t current_cycle;
+} VisualizationTools;
+
+// Function Prototypes
+VisualizationTools* init_visualization_tools(uint64_t max_cycles);
+void update_metrics(VisualizationTools* tools, uint64_t energy, uint64_t tasks_completed);
+void display_metrics(VisualizationTools* tools);
+void destroy_visualization_tools(VisualizationTools* tools);
+
+#endif // VISUALIZATION_TOOLS_H
+
+#include "visualization_tools.h"
+
+// Initialize Visualization Tools
+VisualizationTools* init_visualization_tools(uint64_t max_cycles) {
+    VisualizationTools* tools = (VisualizationTools*)malloc(sizeof(VisualizationTools));
+    if (!tools) return NULL;
+
+    tools->energy_levels = (uint64_t*)malloc(sizeof(uint64_t) * max_cycles);
+    tools->task_completions = (uint64_t*)malloc(sizeof(uint64_t) * max_cycles);
+
+    if (!tools->energy_levels || !tools->task_completions) {
+        free(tools->energy_levels);
+        free(tools->task_completions);
+        free(tools);
+        return NULL;
+    }
+
+    tools->max_cycles = max_cycles;
+    tools->current_cycle = 0;
+
+    return tools;
+}
+
+// Update Metrics
+void update_metrics(VisualizationTools* tools, uint64_t energy, uint64_t tasks_completed) {
+    if (!tools || tools->current_cycle >= tools->max_cycles) return;
+
+    tools->energy_levels[tools->current_cycle] = energy;
+    tools->task_completions[tools->current_cycle] = tasks_completed;
+
+    printf("Cycle %lu: Energy=%lu, Tasks Completed=%lu\n",
+           tools->current_cycle + 1, energy, tasks_completed);
+
+    tools->current_cycle++;
+}
+
+// Display Metrics
+void display_metrics(VisualizationTools* tools) {
+    if (!tools) return;
+
+    printf("\n--- Visualization Metrics ---\n");
+    for (uint64_t i = 0; i < tools->current_cycle; i++) {
+        printf("Cycle %lu: Energy=%lu, Tasks Completed=%lu\n",
+               i + 1, tools->energy_levels[i], tools->task_completions[i]);
+    }
+    printf("--------------------------------\n");
+}
+
+// Destroy Visualization Tools
+void destroy_visualization_tools(VisualizationTools* tools) {
+    if (tools) {
+        free(tools->energy_levels);
+        free(tools->task_completions);
+        free(tools);
+    }
+}
+===== END OF ./visualization/visualization_tools.h =====
+
+===== START OF ./visualization/visualization_tools.c =====
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "visualization_tools.h"
+
+// Initialize Visualization Tools
+VisualizationTools* init_visualization_tools() {
+    VisualizationTools* tools = (VisualizationTools*)malloc(sizeof(VisualizationTools));
+    if (!tools) {
+        printf("Error: Failed to allocate memory for Visualization Tools.\n");
+        return NULL;
+    }
+
+    tools->task_count = 0;
+    tools->node_count = 0;
+    printf("Visualization Tools initialized.\n");
+    return tools;
+}
+
+// Update Node Metrics
+void update_node_metrics(VisualizationTools* tools, Node* node) {
+    if (!tools || !node) {
+        printf("Visualization Tools: Invalid node or tools.\n");
+        return;
+    }
+
+    printf("\n--- Node %lu Metrics ---\n", node->id);
+    printf("Energy: %lu\n", node->energy);
+    printf("Active: %s\n", node->is_active ? "Yes" : "No");
+    printf("Tasks Completed: %lu\n", node->tasks_completed);
+}
+
+// Update Task Progress
+void update_task_progress(VisualizationTools* tools, TaskManager* manager) {
+    if (!tools || !manager) {
+        printf("Visualization Tools: Invalid task manager or tools.\n");
+        return;
+    }
+
+    printf("\n--- Task Progress ---\n");
+    for (uint64_t i = 0; i < manager->task_count; i++) {
+        printf("Task %lu: Priority %u, Assigned to Node %lu\n",
+               manager->task_queue[i].task_id,
+               manager->task_queue[i].priority,
+               manager->task_queue[i].assigned_node_id);
+    }
+    printf("--- End of Task Progress ---\n");
+}
+
+// Display Insight Flow
+void display_insight_flow(VisualizationTools* tools, const char* insight, const char* source, const char* destination) {
+    if (!tools || !insight || !source || !destination) {
+        printf("Visualization Tools: Invalid insight flow data.\n");
+        return;
+    }
+
+    printf("\n--- Insight Flow ---\n");
+    printf("Insight: %s\n", insight);
+    printf("Source: %s\n", source);
+    printf("Destination: %s\n", destination);
+    printf("--- End of Insight Flow ---\n");
+}
+
+// Display Simulation Results
+void display_simulation_results(VisualizationTools* tools, SimulationLayer* simulation_layer) {
+    if (!tools || !simulation_layer) {
+        printf("Visualization Tools: Invalid simulation layer or tools.\n");
+        return;
+    }
+
+    printf("\n--- Simulation Results ---\n");
+    for (uint64_t i = 0; i < simulation_layer->current_simulations; i++) {
+        printf("Simulation %lu: %s (Valid: %s)\n", i + 1,
+               simulation_layer->simulations[i].description,
+               simulation_layer->simulations[i].is_valid ? "Yes" : "No");
+    }
+    printf("--- End of Simulation Results ---\n");
+}
+
+// Display System Status
+void display_system_status(VisualizationTools* tools, Node** nodes, uint64_t node_count, TaskManager* manager) {
+    if (!tools || !nodes || !manager) {
+        printf("Visualization Tools: Invalid system components.\n");
+        return;
+    }
+
+    printf("\n--- System Status ---\n");
+    printf("Nodes: %lu\n", node_count);
+    for (uint64_t i = 0; i < node_count; i++) {
+        if (nodes[i]) {
+            printf("Node %lu: Energy %lu, Active %s, Tasks Completed %lu\n",
+                   nodes[i]->id, nodes[i]->energy,
+                   nodes[i]->is_active ? "Yes" : "No",
+                   nodes[i]->tasks_completed);
+        }
+    }
+
+    printf("Tasks: %lu\n", manager->task_count);
+    printf("--- End of System Status ---\n");
+}
+
+// Destroy Visualization Tools
+void destroy_visualization_tools(VisualizationTools* tools) {
+    if (tools) {
+        free(tools);
+        printf("Visualization Tools destroyed.\n");
+    }
+}
+===== END OF ./visualization/visualization_tools.c =====
+
+===== START OF ./environment/environment_simulation.h =====
+#ifndef ENVIRONMENT_SIMULATION_H
+#define ENVIRONMENT_SIMULATION_H
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+// Environment State Structure
+typedef struct {
+    uint64_t external_data;
+    uint64_t external_conditions;
+    uint64_t interaction_count;
+} EnvironmentState;
+
+// Environment Simulation Structure
+typedef struct {
+    EnvironmentState* states;
+    uint64_t state_count;
+    uint64_t max_states;
+} EnvironmentSimulation;
+
+// Function Prototypes
+EnvironmentSimulation* init_environment_simulation(uint64_t max_states);
+void update_environment_state(EnvironmentSimulation* simulation, uint64_t data, uint64_t conditions);
+void simulate_interaction(EnvironmentSimulation* simulation, uint64_t node_id);
+void display_environment(EnvironmentSimulation* simulation);
+void destroy_environment_simulation(EnvironmentSimulation* simulation);
+
+#endif // ENVIRONMENT_SIMULATION_H
+
+#include "environment_simulation.h"
+
+// Initialize the Environment Simulation
+EnvironmentSimulation* init_environment_simulation(uint64_t max_states) {
+    EnvironmentSimulation* simulation = (EnvironmentSimulation*)malloc(sizeof(EnvironmentSimulation));
+    if (!simulation) return NULL;
+
+    simulation->states = (EnvironmentState*)malloc(sizeof(EnvironmentState) * max_states);
+    if (!simulation->states) {
+        free(simulation);
+        return NULL;
+    }
+
+    simulation->state_count = 0;
+    simulation->max_states = max_states;
+
+    return simulation;
+}
+
+// Update the Environment State
+void update_environment_state(EnvironmentSimulation* simulation, uint64_t data, uint64_t conditions) {
+    if (!simulation || simulation->state_count >= simulation->max_states) return;
+
+    EnvironmentState* state = &simulation->states[simulation->state_count++];
+    state->external_data = data;
+    state->external_conditions = conditions;
+    state->interaction_count = 0;
+
+    printf("Environment State Updated: Data=%lu, Conditions=%lu\n", data, conditions);
+}
+
+// Simulate Interaction with the Environment
+void simulate_interaction(EnvironmentSimulation* simulation, uint64_t node_id) {
+    if (!simulation || simulation->state_count == 0) return;
+
+    EnvironmentState* current_state = &simulation->states[simulation->state_count - 1];
+    current_state->interaction_count++;
+
+    printf("Node %lu interacting with environment: Data=%lu, Conditions=%lu, Interactions=%lu\n",
+           node_id, current_state->external_data, current_state->external_conditions, current_state->interaction_count);
+}
+
+// Display the Environment State
+void display_environment(EnvironmentSimulation* simulation) {
+    if (!simulation) return;
+
+    printf("\n--- Environment States ---\n");
+    for (uint64_t i = 0; i < simulation->state_count; i++) {
+        EnvironmentState* state = &simulation->states[i];
+        printf("State %lu: Data=%lu, Conditions=%lu, Interactions=%lu\n",
+               i + 1, state->external_data, state->external_conditions, state->interaction_count);
+    }
+    printf("---------------------------\n");
+}
+
+// Destroy the Environment Simulation
+void destroy_environment_simulation(EnvironmentSimulation* simulation) {
+    if (simulation) {
+        free(simulation->states);
+        free(simulation);
+    }
+}
+===== END OF ./environment/environment_simulation.h =====
+
+===== START OF ./environment/environment_simulation.c =====
+#include "environment_simulation.h"
+#include <stdlib.h>
+#include <stdio.h>
+
+// Initialize the Environment Simulation
+EnvironmentSimulation* init_environment_simulation(uint64_t max_states) {
+    EnvironmentSimulation* simulation = (EnvironmentSimulation*)malloc(sizeof(EnvironmentSimulation));
+    if (!simulation) return NULL;
+
+    simulation->states = (EnvironmentState*)malloc(sizeof(EnvironmentState) * max_states);
+    if (!simulation->states) {
+        free(simulation);
+        return NULL;
+    }
+
+    simulation->state_count = 0;
+    simulation->max_states = max_states;
+
+    printf("Environment Simulation initialized with capacity for %lu states.\n", max_states);
+    return simulation;
+}
+
+// Update the Environment State
+void update_environment_state(EnvironmentSimulation* simulation, uint64_t data, uint64_t conditions) {
+    if (!simulation || simulation->state_count >= simulation->max_states) return;
+
+    EnvironmentState* state = &simulation->states[simulation->state_count++];
+    state->external_data = data;
+    state->external_conditions = conditions;
+    state->interaction_count = 0;
+
+    printf("Environment State Updated: Data=%lu, Conditions=%lu\n", data, conditions);
+}
+
+// Simulate Interaction with the Environment
+void simulate_interaction(EnvironmentSimulation* simulation, uint64_t node_id) {
+    if (!simulation || simulation->state_count == 0) return;
+
+    EnvironmentState* current_state = &simulation->states[simulation->state_count - 1];
+    current_state->interaction_count++;
+
+    printf("Node %lu interacting with environment: Data=%lu, Conditions=%lu, Interactions=%lu\n",
+           node_id, current_state->external_data, current_state->external_conditions, current_state->interaction_count);
+}
+
+// Display the Environment State
+void display_environment(EnvironmentSimulation* simulation) {
+    if (!simulation) return;
+
+    printf("\n--- Environment States ---\n");
+    for (uint64_t i = 0; i < simulation->state_count; i++) {
+        EnvironmentState* state = &simulation->states[i];
+        printf("State %lu: Data=%lu, Conditions=%lu, Interactions=%lu\n",
+               i + 1, state->external_data, state->external_conditions, state->interaction_count);
+    }
+    printf("---------------------------\n");
+}
+
+// Destroy the Environment Simulation
+void destroy_environment_simulation(EnvironmentSimulation* simulation) {
+    if (simulation) {
+        free(simulation->states);
+        free(simulation);
+        printf("Environment Simulation destroyed.\n");
+    }
+}
+===== END OF ./environment/environment_simulation.c =====
+
+===== START OF ./memory/memory_graph.h =====
+#ifndef MEMORY_GRAPH_H
+#define MEMORY_GRAPH_H
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+// Memory Node Structure
+typedef struct MemoryNode {
+    char* data;
+    uint8_t importance;
+    uint64_t timestamp;
+    struct MemoryNode** connections;
+    uint64_t connection_count;
+} MemoryNode;
+
+// Memory Graph Structure
+typedef struct {
+    MemoryNode** nodes;
+    uint64_t node_count;
+    uint64_t max_nodes;
+} MemoryGraph;
+
+// Function Prototypes
+MemoryGraph* init_memory_graph(uint64_t max_nodes);
+MemoryNode* create_memory_node(const char* data, uint8_t importance);
+void connect_memory_nodes(MemoryNode* node1, MemoryNode* node2);
+void add_memory_node(MemoryGraph* graph, MemoryNode* node);
+void recall_memory(MemoryGraph* graph, const char* keyword);
+void evolve_memory(MemoryGraph* graph);
+void destroy_memory_graph(MemoryGraph* graph);
+
+#endif // MEMORY_GRAPH_H
+
+#include "memory_graph.h"
+
+// Initialize the Memory Graph
+MemoryGraph* init_memory_graph(uint64_t max_nodes) {
+    MemoryGraph* graph = (MemoryGraph*)malloc(sizeof(MemoryGraph));
+    if (!graph) return NULL;
+
+    graph->nodes = (MemoryNode**)malloc(sizeof(MemoryNode*) * max_nodes);
+    if (!graph->nodes) {
+        free(graph);
+        return NULL;
+    }
+
+    graph->node_count = 0;
+    graph->max_nodes = max_nodes;
+
+    return graph;
+}
+
+// Create a Memory Node
+MemoryNode* create_memory_node(const char* data, uint8_t importance) {
+    MemoryNode* node = (MemoryNode*)malloc(sizeof(MemoryNode));
+    if (!node) return NULL;
+
+    node->data = strdup(data);
+    node->importance = importance;
+    node->timestamp = time(NULL);
+    node->connections = NULL;
+    node->connection_count = 0;
+
+    return node;
+}
+
+// Connect Two Memory Nodes
+void connect_memory_nodes(MemoryNode* node1, MemoryNode* node2) {
+    if (!node1 || !node2) return;
+
+    node1->connections = (MemoryNode**)realloc(node1->connections, sizeof(MemoryNode*) * (node1->connection_count + 1));
+    node2->connections = (MemoryNode**)realloc(node2->connections, sizeof(MemoryNode*) * (node2->connection_count + 1));
+
+    node1->connections[node1->connection_count++] = node2;
+    node2->connections[node2->connection_count++] = node1;
+
+    printf("Connected memory nodes: '%s' <-> '%s'\n", node1->data, node2->data);
+}
+
+// Add a Memory Node to the Graph
+void add_memory_node(MemoryGraph* graph, MemoryNode* node) {
+    if (!graph || graph->node_count >= graph->max_nodes || !node) return;
+
+    graph->nodes[graph->node_count++] = node;
+    printf("Added memory node: '%s'\n", node->data);
+}
+
+// Recall Memory by Keyword
+void recall_memory(MemoryGraph* graph, const char* keyword) {
+    if (!graph || !keyword) return;
+
+    printf("Recalling memories related to keyword: '%s'\n", keyword);
+    for (uint64_t i = 0; i < graph->node_count; i++) {
+        if (strstr(graph->nodes[i]->data, keyword)) {
+            printf("Memory Found: '%s' (Importance: %u)\n", graph->nodes[i]->data, graph->nodes[i]->importance);
+        }
+    }
+}
+
+// Evolve Memory Connections
+void evolve_memory(MemoryGraph* graph) {
+    if (!graph) return;
+
+    printf("Evolving memory graph...\n");
+    for (uint64_t i = 0; i < graph->node_count; i++) {
+        MemoryNode* node = graph->nodes[i];
+        if (node->importance < 5) {
+            // Remove low-importance connections
+            for (uint64_t j = 0; j < node->connection_count; j++) {
+                node->connections[j] = NULL;
+            }
+            node->connection_count = 0;
+            printf("Pruned low-importance node: '%s'\n", node->data);
+        }
+    }
+}
+
+// Destroy the Memory Graph
+void destroy_memory_graph(MemoryGraph* graph) {
+    if (graph) {
+        for (uint64_t i = 0; i < graph->node_count; i++) {
+            free(graph->nodes[i]->data);
+            free(graph->nodes[i]->connections);
+            free(graph->nodes[i]);
+        }
+        free(graph->nodes);
+        free(graph);
+    }
+}
+===== END OF ./memory/memory_graph.h =====
+
+===== START OF ./memory/memory_graph.c =====
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "memory_graph.h"
+
+typedef struct MemoryNode {
+    uint64_t id;
+    char* data;
+    int relevance;
+    struct MemoryNode* next;
+} MemoryNode;
+
+typedef struct MemoryGraph {
+    MemoryNode* head;
+    uint64_t max_nodes;
+    uint64_t current_nodes;
+} MemoryGraph;
+
+// Initialize the Memory Graph
+MemoryGraph* init_memory_graph(uint64_t max_nodes) {
+    MemoryGraph* graph = (MemoryGraph*)malloc(sizeof(MemoryGraph));
+    graph->head = NULL;
+    graph->max_nodes = max_nodes;
+    graph->current_nodes = 0;
+    printf("Memory Graph initialized with capacity for %lu nodes.\n", max_nodes);
+    return graph;
+}
+
+// Add a Memory Node
+void add_memory_node(MemoryGraph* graph, const char* data, int relevance) {
+    if (!graph || graph->current_nodes >= graph->max_nodes) {
+        printf("Memory Graph is full or uninitialized.\n");
+        return;
+    }
+
+    MemoryNode* new_node = (MemoryNode*)malloc(sizeof(MemoryNode));
+    new_node->id = graph->current_nodes + 1;
+    new_node->data = strdup(data);
+    new_node->relevance = relevance;
+    new_node->next = graph->head;
+    graph->head = new_node;
+    graph->current_nodes++;
+
+    printf("Memory Node %lu added: %s (Relevance: %d)\n", new_node->id, data, relevance);
+}
+
+// Retrieve Most Relevant Nodes
+void get_top_relevant_nodes(MemoryGraph* graph, int count) {
+    if (!graph || !graph->head) {
+        printf("Memory Graph is empty or uninitialized.\n");
+        return;
+    }
+
+    printf("Top %d relevant memory nodes:\n", count);
+    MemoryNode* current = graph->head;
+    for (int i = 0; i < count && current != NULL; i++) {
+        printf("  Node %lu: %s (Relevance: %d)\n", current->id, current->data, current->relevance);
+        current = current->next;
+    }
+}
+
+// Cleanup the Memory Graph
+void destroy_memory_graph(MemoryGraph* graph) {
+    if (!graph) return;
+
+    MemoryNode* current = graph->head;
+    while (current) {
+        MemoryNode* temp = current;
+        current = current->next;
+        free(temp->data);
+        free(temp);
+    }
+    free(graph);
+    printf("Memory Graph destroyed.\n");
+}
+===== END OF ./memory/memory_graph.c =====
+
+===== START OF ./core/membrane.h =====
+#ifndef MEMBRANE_H
+#define MEMBRANE_H
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "node_core.h"
+
+// Membrane Structure
+typedef struct {
+    Node** nodes;
+    uint64_t total_nodes;
+    uint64_t energy_pool;
+} Membrane;
+
+// Function Prototypes
+Membrane* create_membrane(uint64_t initial_energy, uint64_t max_nodes);
+void distribute_energy(Membrane* membrane);
+void replicate_nodes(Membrane* membrane);
+void destroy_membrane(Membrane* membrane);
+
+#endif // MEMBRANE_H
+
+#include "membrane.h"
+
+// Create a Membrane
+Membrane* create_membrane(uint64_t initial_energy, uint64_t max_nodes) {
+    Membrane* membrane = (Membrane*)malloc(sizeof(Membrane));
+    if (!membrane) return NULL;
+
+    membrane->nodes = (Node**)malloc(sizeof(Node*) * max_nodes);
+    if (!membrane->nodes) {
+        free(membrane);
+        return NULL;
+    }
+
+    for (uint64_t i = 0; i < max_nodes; i++) {
+        membrane->nodes[i] = NULL;
+    }
+
+    membrane->total_nodes = 0;
+    membrane->energy_pool = initial_energy;
+
+    return membrane;
+}
+
+// Distribute Energy to Nodes
+void distribute_energy(Membrane* membrane) {
+    if (!membrane || membrane->total_nodes == 0) return;
+
+    uint64_t energy_per_node = membrane->energy_pool / membrane->total_nodes;
+
+    for (uint64_t i = 0; i < membrane->total_nodes; i++) {
+        if (membrane->nodes[i]) {
+            membrane->nodes[i]->energy += energy_per_node;
+            membrane->energy_pool -= energy_per_node;
+        }
+    }
+
+    printf("Distributed %lu energy per node.\n", energy_per_node);
+}
+
+// Replicate Nodes
+void replicate_nodes(Membrane* membrane) {
+    for (uint64_t i = 0; i < membrane->total_nodes; i++) {
+        Node* node = membrane->nodes[i];
+        if (node && node->energy > 80) {
+            Node* new_node = init_node(membrane->total_nodes + 1);
+            if (new_node) {
+                membrane->nodes[membrane->total_nodes++] = new_node;
+                node->energy -= 50;
+                printf("Node %lu replicated successfully.\n", node->id);
+            }
+        }
+    }
+}
+
+// Destroy the Membrane
+void destroy_membrane(Membrane* membrane) {
+    if (!membrane) return;
+
+    for (uint64_t i = 0; i < membrane->total_nodes; i++) {
+        destroy_node(membrane->nodes[i]);
+    }
+
+    free(membrane->nodes);
+    free(membrane);
+}
+===== END OF ./core/membrane.h =====
+
+===== START OF ./core/node_core.c =====
+#include "node_core.h"
+#include "mirrored_engine.h"
+#include "kaleidoscope_engine.h"
+#include <stdio.h>
+
+// Node requests help from the Mirrored Network
+void request_help_from_mirrored_network(Node* node, MirroredNetwork* network, const char* problem_description) {
+    if (!node || !network) return;
+
+    printf("Node %lu requesting help: %s\n", node->id, problem_description);
+    generate_computational_suggestion(network, problem_description);
+    propose_to_node(network, node);
+}
+
+// Process suggestions from Mirrored Network
+void process_suggestion(KaleidoscopeEngine* engine, Suggestion* suggestion) {
+    if (!engine || !suggestion) return;
+
+    printf("Kaleidoscope Engine processing suggestion: %s\n", suggestion->description);
+    simulate_compound_interaction(engine, suggestion->context);
+}
+===== END OF ./core/node_core.c =====
+
+===== START OF ./core/node_core.h =====
+#ifndef NODE_CORE_H
+#define NODE_CORE_H
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+// Node Structure
+typedef struct {
+    uint64_t id;
+    uint64_t energy;
+    uint64_t memory_size;
+    uint8_t is_active;
+    uint8_t learning_drive;
+    uint8_t growth_drive;
+    uint8_t share_drive;
+} Node;
+
+// Function Prototypes
+Node* init_node(uint64_t id);
+void process_node(Node* node);
+void replicate_node(Node* node);
+void destroy_node(Node* node);
+
+#endif // NODE_CORE_H
+
+#include "node_core.h"
+
+// Initialize a Node
+Node* init_node(uint64_t id) {
+    Node* node = (Node*)malloc(sizeof(Node));
+    if (!node) return NULL;
+
+    node->id = id;
+    node->energy = 100;
+    node->memory_size = 1024; // Default 1 KB
+    node->is_active = 1;
+    node->learning_drive = rand() % 10;
+    node->growth_drive = rand() % 10;
+    node->share_drive = rand() % 10;
+
+    return node;
+}
+
+// Process a Node
+void process_node(Node* node) {
+    if (!node || !node->is_active) return;
+
+    printf("Processing Node %lu\n", node->id);
+
+    // Simulate learning
+    if (node->learning_drive > 5) {
+        printf("Node %lu is learning.\n", node->id);
+        node->energy -= 10;
+    }
+
+    // Simulate sharing
+    if (node->share_drive > 5) {
+        printf("Node %lu is sharing knowledge.\n", node->id);
+        node->energy -= 5;
+    }
+
+    // Simulate growth
+    if (node->growth_drive > 7 && node->energy > 50) {
+        printf("Node %lu is growing.\n", node->id);
+        node->energy -= 20;
+    }
+
+    // Check energy
+    if (node->energy <= 0) {
+        node->is_active = 0;
+        printf("Node %lu is inactive due to low energy.\n", node->id);
+    }
+}
+
+// Replicate a Node
+void replicate_node(Node* node) {
+    if (!node || node->energy < 50) {
+        printf("Node %lu does not have enough energy to replicate.\n", node->id);
+        return;
+    }
+
+    printf("Node %lu is replicating.\n", node->id);
+    node->energy -= 50;
+}
+
+// Destroy a Node
+void destroy_node(Node* node) {
+    if (node) {
+        free(node);
+    }
+}
+===== END OF ./core/node_core.h =====
+
+===== START OF ./core/membrane.c =====
+#include <stdio.h>
+#include <stdlib.h>
+#include "membrane.h"
+
+// Initialize the Membrane
+Membrane* create_membrane(uint64_t total_energy, uint64_t max_nodes) {
+    Membrane* membrane = (Membrane*)malloc(sizeof(Membrane));
+    if (!membrane) {
+        printf("Error: Failed to allocate memory for Membrane.\n");
+        return NULL;
+    }
+
+    membrane->total_energy = total_energy;
+    membrane->max_nodes = max_nodes;
+    membrane->node_count = 0;
+    membrane->nodes = (Node**)malloc(sizeof(Node*) * max_nodes);
+
+    for (uint64_t i = 0; i < max_nodes; i++) {
+        membrane->nodes[i] = NULL;
+    }
+
+    printf("Membrane initialized with total energy: %lu, max nodes: %lu\n", total_energy, max_nodes);
+    return membrane;
+}
+
+// Add a Node to the Membrane
+void add_node_to_membrane(Membrane* membrane, Node* node) {
+    if (!membrane || !node) return;
+
+    if (membrane->node_count >= membrane->max_nodes) {
+        printf("Error: Membrane capacity reached. Cannot add Node %lu.\n", node->id);
+        return;
+    }
+
+    membrane->nodes[membrane->node_count++] = node;
+    printf("Node %lu added to the Membrane.\n", node->id);
+}
+
+// Redistribute Energy Across Nodes
+void redistribute_energy(Membrane* membrane) {
+    if (!membrane || membrane->node_count == 0) return;
+
+    uint64_t available_energy = membrane->total_energy;
+    uint64_t equal_share = available_energy / membrane->node_count;
+
+    printf("Redistributing energy: Each node receives %lu units.\n", equal_share);
+
+    for (uint64_t i = 0; i < membrane->node_count; i++) {
+        if (membrane->nodes[i]) {
+            membrane->nodes[i]->energy = equal_share;
+            printf("Node %lu now has %lu energy.\n", membrane->nodes[i]->id, equal_share);
+        }
+    }
+}
+
+// Isolate a Failing Node
+void isolate_node(Membrane* membrane, uint64_t node_id) {
+    if (!membrane) return;
+
+    for (uint64_t i = 0; i < membrane->node_count; i++) {
+        if (membrane->nodes[i] && membrane->nodes[i]->id == node_id) {
+            printf("Isolating Node %lu due to failure.\n", node_id);
+            membrane->nodes[i]->is_active = 0; // Mark the node as inactive
+            return;
+        }
+    }
+
+    printf("Node %lu not found in the Membrane for isolation.\n", node_id);
+}
+
+// Replicate a Node
+Node* replicate_node_in_membrane(Membrane* membrane, uint64_t parent_id, uint64_t new_id) {
+    if (!membrane || membrane->node_count >= membrane->max_nodes) {
+        printf("Error: Cannot replicate node. Membrane capacity reached.\n");
+        return NULL;
+    }
+
+    Node* parent_node = NULL;
+    for (uint64_t i = 0; i < membrane->node_count; i++) {
+        if (membrane->nodes[i] && membrane->nodes[i]->id == parent_id) {
+            parent_node = membrane->nodes[i];
+            break;
+        }
+    }
+
+    if (!parent_node || parent_node->energy < 50) {
+        printf("Error: Parent Node %lu does not have enough energy to replicate.\n", parent_id);
+        return NULL;
+    }
+
+    Node* new_node = init_node(new_id);
+    new_node->energy = parent_node->energy / 2; // Split energy with the new node
+    parent_node->energy /= 2;
+
+    add_node_to_membrane(membrane, new_node);
+
+    printf("Node %lu replicated into Node %lu. Energy split: Parent (%lu), Child (%lu).\n",
+           parent_id, new_id, parent_node->energy, new_node->energy);
+
+    return new_node;
+}
+
+// Clean Up Membrane
+void destroy_membrane(Membrane* membrane) {
+    if (!membrane) return;
+
+    for (uint64_t i = 0; i < membrane->node_count; i++) {
+        if (membrane->nodes[i]) {
+            destroy_node(membrane->nodes[i]);
+        }
+    }
+
+    free(membrane->nodes);
+    free(membrane);
+    printf("Membrane destroyed.\n");
+}
+===== END OF ./core/membrane.c =====
+
+===== START OF ./learning/learning_feedback.c =====
+#include "learning_feedback.h"
+#include <stdlib.h>
+#include <stdio.h>
+
+// Initialize the Learning Feedback System
+LearningFeedbackSystem* init_learning_feedback_system(uint64_t max_scores, double learning_rate) {
+    LearningFeedbackSystem* system = (LearningFeedbackSystem*)malloc(sizeof(LearningFeedbackSystem));
+    if (!system) return NULL;
+
+    system->feedback_scores = (double*)malloc(sizeof(double) * max_scores);
+    if (!system->feedback_scores) {
+        free(system);
+        return NULL;
+    }
+
+    system->score_count = 0;
+    system->max_scores = max_scores;
+    system->learning_rate = learning_rate;
+
+    printf("Learning Feedback System initialized with learning rate %.2f and capacity for %lu scores.\n", learning_rate, max_scores);
+    return system;
+}
+
+// Record Feedback Score
+void record_feedback(LearningFeedbackSystem* system, double score) {
+    if (!system || system->score_count >= system->max_scores) {
+        printf("Learning Feedback System: Cannot record score. Capacity reached or uninitialized system.\n");
+        return;
+    }
+
+    system->feedback_scores[system->score_count++] = score;
+    printf("Recorded feedback score: %.2f (Total scores: %lu)\n", score, system->score_count);
+}
+
+// Calculate Adjusted Learning Rate
+double calculate_adjusted_learning_rate(LearningFeedbackSystem* system) {
+    if (!system || system->score_count == 0) return system->learning_rate;
+
+    double sum = 0.0;
+    for (uint64_t i = 0; i < system->score_count; i++) {
+        sum += system->feedback_scores[i];
+    }
+    double average_score = sum / system->score_count;
+
+    // Adjust learning rate based on feedback trends
+    double adjustment = 1.0 + (average_score - 50.0) / 100.0; // Normalize to +/- 50%
+    double adjusted_rate = system->learning_rate * adjustment;
+
+    printf("Adjusted learning rate: %.2f (Original: %.2f)\n", adjusted_rate, system->learning_rate);
+    return adjusted_rate;
+}
+
+// Apply Learning Rate to a Model
+void apply_learning_rate(double* learning_model, double adjustment) {
+    if (!learning_model) return;
+
+    *learning_model *= adjustment;
+    printf("Learning model updated with adjustment: %.2f\n", adjustment);
+}
+
+// Destroy the Learning Feedback System
+void destroy_learning_feedback_system(LearningFeedbackSystem* system) {
+    if (system) {
+        free(system->feedback_scores);
+        free(system);
+        printf("Learning Feedback System destroyed.\n");
+    }
+}
+===== END OF ./learning/learning_feedback.c =====
+
+===== START OF ./learning/learning_feedback.h =====
+#ifndef LEARNING_FEEDBACK_H
+#define LEARNING_FEEDBACK_H
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+// Learning Feedback System Structure
+typedef struct {
+    double* feedback_scores;
+    uint64_t score_count;
+    uint64_t max_scores;
+    double learning_rate;
+} LearningFeedbackSystem;
+
+// Function Prototypes
+LearningFeedbackSystem* init_learning_feedback_system(uint64_t max_scores, double learning_rate);
+void record_feedback(LearningFeedbackSystem* system, double score);
+double calculate_adjusted_learning_rate(LearningFeedbackSystem* system);
+void apply_learning_rate(double* learning_model, double adjustment);
+void destroy_learning_feedback_system(LearningFeedbackSystem* system);
+
+#endif // LEARNING_FEEDBACK_H
+
+#include "learning_feedback.h"
+
+// Initialize the Learning Feedback System
+LearningFeedbackSystem* init_learning_feedback_system(uint64_t max_scores, double learning_rate) {
+    LearningFeedbackSystem* system = (LearningFeedbackSystem*)malloc(sizeof(LearningFeedbackSystem));
+    if (!system) return NULL;
+
+    system->feedback_scores = (double*)malloc(sizeof(double) * max_scores);
+    if (!system->feedback_scores) {
+        free(system);
+        return NULL;
+    }
+
+    system->score_count = 0;
+    system->max_scores = max_scores;
+    system->learning_rate = learning_rate;
+
+    return system;
+}
+
+// Record Feedback Score
+void record_feedback(LearningFeedbackSystem* system, double score) {
+    if (!system || system->score_count >= system->max_scores) return;
+
+    system->feedback_scores[system->score_count++] = score;
+    printf("Recorded feedback score: %.2f (Total scores: %lu)\n", score, system->score_count);
+}
+
+// Calculate Adjusted Learning Rate
+double calculate_adjusted_learning_rate(LearningFeedbackSystem* system) {
+    if (!system || system->score_count == 0) return system->learning_rate;
+
+    double sum = 0.0;
+    for (uint64_t i = 0; i < system->score_count; i++) {
+        sum += system->feedback_scores[i];
+    }
+    double average_score = sum / system->score_count;
+
+    // Adjust learning rate based on feedback trends
+    double adjustment = 1.0 + (average_score - 50.0) / 100.0; // Normalize to +/- 50%
+    double adjusted_rate = system->learning_rate * adjustment;
+
+    printf("Adjusted learning rate: %.2f (Original: %.2f)\n", adjusted_rate, system->learning_rate);
+    return adjusted_rate;
+}
+
+// Apply Learning Rate to a Model
+void apply_learning_rate(double* learning_model, double adjustment) {
+    if (!learning_model) return;
+
+    *learning_model *= adjustment;
+    printf("Learning model updated with adjustment: %.2f\n", adjustment);
+}
+
+// Destroy the Learning Feedback System
+void destroy_learning_feedback_system(LearningFeedbackSystem* system) {
+    if (system) {
+        free(system->feedback_scores);
+        free(system);
+    }
+}
+===== END OF ./learning/learning_feedback.h =====
+
+===== START OF ./integration/master_integration.c =====
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "data_ingestion.h"
+
+// Initialize the Data Ingestion Layer
+DataIngestionLayer* init_data_ingestion_layer(uint64_t max_entries) {
+    DataIngestionLayer* layer = (DataIngestionLayer*)malloc(sizeof(DataIngestionLayer));
+    if (!layer) {
+        printf("Error: Failed to allocate memory for Data Ingestion Layer.\n");
+        return NULL;
+    }
+
+    layer->text_entries = (char**)malloc(sizeof(char*) * max_entries);
+    layer->numerical_entries = (double**)malloc(sizeof(double*) * max_entries);
+    layer->visual_entries = (char**)malloc(sizeof(char*) * max_entries);
+    layer->max_entries = max_entries;
+    layer->current_text = 0;
+    layer->current_numerical = 0;
+    layer->current_visual = 0;
+
+    printf("Data Ingestion Layer initialized with capacity for %lu entries per type.\n", max_entries);
+    return layer;
+}
+
+// Ingest Text Data
+void ingest_text(DataIngestionLayer* layer, const char* text) {
+    if (!layer || layer->current_text >= layer->max_entries) {
+        printf("Error: Text ingestion capacity reached or layer uninitialized.\n");
+        return;
+    }
+
+    layer->text_entries[layer->current_text] = strdup(text);
+    printf("Ingested text data: %s\n", text);
+    layer->current_text++;
+}
+
+// Ingest Numerical Data
+void ingest_numerical(DataIngestionLayer* layer, const double* data, uint64_t count) {
+    if (!layer || layer->current_numerical >= layer->max_entries) {
+        printf("Error: Numerical ingestion capacity reached or layer uninitialized.\n");
+        return;
+    }
+
+    double* entry = (double*)malloc(sizeof(double) * count);
+    memcpy(entry, data, sizeof(double) * count);
+    layer->numerical_entries[layer->current_numerical] = entry;
+
+    printf("Ingested numerical data: [");
+    for (uint64_t i = 0; i < count; i++) {
+        printf("%lf%s", data[i], (i < count - 1) ? ", " : "");
+    }
+    printf("]\n");
+
+    layer->current_numerical++;
+}
+
+// Ingest Visual Data
+void ingest_visual(DataIngestionLayer* layer, const char* file_path) {
+    if (!layer || layer->current_visual >= layer->max_entries) {
+        printf("Error: Visual ingestion capacity reached or layer uninitialized.\n");
+        return;
+    }
+
+    layer->visual_entries[layer->current_visual] = strdup(file_path);
+    printf("Ingested visual data from file: %s\n", file_path);
+    layer->current_visual++;
+}
+
+// Cleanup Data Ingestion Layer
+void destroy_data_ingestion_layer(DataIngestionLayer* layer) {
+    if (!layer) return;
+
+    for (uint64_t i = 0; i < layer->current_text; i++) {
+        free(layer->text_entries[i]);
+    }
+    for (uint64_t i = 0; i < layer->current_numerical; i++) {
+        free(layer->numerical_entries[i]);
+    }
+    for (uint64_t i = 0; i < layer->current_visual; i++) {
+        free(layer->visual_entries[i]);
+    }
+
+    free(layer->text_entries);
+    free(layer->numerical_entries);
+    free(layer->visual_entries);
+    free(layer);
+
+    printf("Data Ingestion Layer destroyed.\n");
+}
+===== END OF ./integration/master_integration.c =====
+
+===== START OF ./main.c =====
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include "node_core.h"
+#include "mirrored_engine.h"
+#include "kaleidoscope_engine.h"
+#include "memory_graph.h"
+#include "data_ingestion.h"
+
+int main() {
+    // Seed random number generator for simulations
+    srand(time(NULL));
+
+    printf("\n--- Initializing AI System Simulation ---\n");
+
+    // Initialize Components
+    Node* node = init_node(1);
+    MemoryGraph* memory_graph = init_memory_graph(100);
+    KaleidoscopeEngine* kaleidoscope_engine = init_kaleidoscope_engine(memory_graph);
+    MirroredNetwork* mirrored_network = init_mirrored_network(10);
+    DataIngestionLayer* ingestion_layer = init_data_ingestion_layer(50);
+
+    // Load Disease Data
+    ingest_disease_data(ingestion_layer, "disease_data.csv");
+
+    printf("\n--- Simulation Begins ---\n");
+
+    for (int cycle = 0; cycle < 10; cycle++) {
+        printf("\n--- Cycle %d ---\n", cycle + 1);
+
+        // Node requests help if stuck
+        if (rand() % 3 == 0) {  // Simulate a 1 in 3 chance of the node being stuck
+            request_help_from_mirrored_network(node, mirrored_network, "Unsolved disease model");
+        }
+
+        // Simulate interaction between components
+        char sample_data[256];
+        snprintf(sample_data, sizeof(sample_data), "Compound_%d", rand() % 100);
+        simulate_compound_interaction(kaleidoscope_engine, sample_data);
+
+        // Add random memory nodes
+        if (rand() % 2 == 0) {
+            char memory_entry[256];
+            snprintf(memory_entry, sizeof(memory_entry), "Cycle %d insight: %s", cycle, sample_data);
+            add_memory_node(memory_graph, memory_entry, rand() % 100);
+        }
+
+        // Simulate ingestion updates
+        if (rand() % 2 == 0) {
+            char data_update[256];
+            snprintf(data_update, sizeof(data_update), "Cycle %d additional data", cycle);
+            add_to_ingestion_memory(ingestion_layer, data_update);
+        }
+    }
+
+    printf("\n--- Simulation Completed ---\n");
+
+    // Cleanup
+    destroy_node(node);
+    destroy_memory_graph(memory_graph);
+    destroy_kaleidoscope_engine(kaleidoscope_engine);
+    destroy_mirrored_network(mirrored_network);
+    destroy_data_ingestion_layer(ingestion_layer);
+
+    return 0;
+}
+===== END OF ./main.c =====
+
+===== START OF ./collaboration/collaboration_nodes.c =====
+#include "collaboration_nodes.h"
+#include <stdlib.h>
+#include <stdio.h>
+
+// Initialize a Collaboration Node
+CollaborationNode* init_collaboration_node(uint64_t id, uint64_t max_subtasks) {
+    CollaborationNode* collab_node = (CollaborationNode*)malloc(sizeof(CollaborationNode));
+    if (!collab_node) return NULL;
+
+    collab_node->id = id;
+    collab_node->subtasks = (Task**)malloc(sizeof(Task*) * max_subtasks);
+    if (!collab_node->subtasks) {
+        free(collab_node);
+        return NULL;
+    }
+
+    collab_node->subtask_count = 0;
+    collab_node->max_subtasks = max_subtasks;
+    collab_node->is_active = 1;
+
+    printf("Collaboration Node %lu initialized with capacity for %lu subtasks.\n", id, max_subtasks);
+    return collab_node;
+}
+
+// Assign a Subtask to the Collaboration Node
+void assign_subtask(CollaborationNode* collab_node, Task* subtask) {
+    if (!collab_node || collab_node->subtask_count >= collab_node->max_subtasks || !subtask) {
+        printf("Collaboration Node %lu: Cannot assign subtask. Node full or invalid subtask.\n", collab_node->id);
+        return;
+    }
+
+    collab_node->subtasks[collab_node->subtask_count++] = subtask;
+    printf("Subtask %lu assigned to Collaboration Node %lu.\n", subtask->task_id, collab_node->id);
+}
+
+// Execute Subtasks in the Collaboration Node
+void execute_subtasks(CollaborationNode* collab_node) {
+    if (!collab_node || collab_node->subtask_count == 0) return;
+
+    printf("Executing subtasks in Collaboration Node %lu...\n", collab_node->id);
+
+    for (uint64_t i = 0; i < collab_node->subtask_count; i++) {
+        Task* subtask = collab_node->subtasks[i];
+        if (subtask) {
+            printf("Executing Subtask %lu (Priority: %u, Energy Required: %lu)...\n",
+                   subtask->task_id, subtask->priority, subtask->energy_required);
+            free(subtask);
+        }
+    }
+
+    collab_node->subtask_count = 0; // Reset subtask count after execution
+}
+
+// Destroy the Collaboration Node
+void destroy_collaboration_node(CollaborationNode* collab_node) {
+    if (collab_node) {
+        for (uint64_t i = 0; i < collab_node->subtask_count; i++) {
+            free(collab_node->subtasks[i]);
+        }
+        free(collab_node->subtasks);
+        free(collab_node);
+        printf("Collaboration Node %lu destroyed.\n", collab_node->id);
+    }
+}
+===== END OF ./collaboration/collaboration_nodes.c =====
+
+===== START OF ./collaboration/collaboration_nodes.h =====
+#ifndef COLLABORATION_NODES_H
+#define COLLABORATION_NODES_H
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "task_manager.h"
+#include "node_core.h"
+
+// Collaboration Node Structure
+typedef struct {
+    uint64_t id;
+    Task** subtasks;
+    uint64_t subtask_count;
+    uint64_t max_subtasks;
+    uint8_t is_active;
+} CollaborationNode;
+
+// Function Prototypes
+CollaborationNode* init_collaboration_node(uint64_t id, uint64_t max_subtasks);
+void assign_subtask(CollaborationNode* collab_node, Task* subtask);
+void execute_subtasks(CollaborationNode* collab_node);
+void destroy_collaboration_node(CollaborationNode* collab_node);
+
+#endif // COLLABORATION_NODES_H
+
+#include "collaboration_nodes.h"
+
+// Initialize a Collaboration Node
+CollaborationNode* init_collaboration_node(uint64_t id, uint64_t max_subtasks) {
+    CollaborationNode* collab_node = (CollaborationNode*)malloc(sizeof(CollaborationNode));
+    if (!collab_node) return NULL;
+
+    collab_node->id = id;
+    collab_node->subtasks = (Task**)malloc(sizeof(Task*) * max_subtasks);
+    if (!collab_node->subtasks) {
+        free(collab_node);
+        return NULL;
+    }
+
+    collab_node->subtask_count = 0;
+    collab_node->max_subtasks = max_subtasks;
+    collab_node->is_active = 1;
+
+    return collab_node;
+}
+
+// Assign a Subtask to the Collaboration Node
+void assign_subtask(CollaborationNode* collab_node, Task* subtask) {
+    if (!collab_node || collab_node->subtask_count >= collab_node->max_subtasks || !subtask) return;
+
+    collab_node->subtasks[collab_node->subtask_count++] = subtask;
+    printf("Subtask %lu assigned to Collaboration Node %lu.\n", subtask->task_id, collab_node->id);
+}
+
+// Execute Subtasks in the Collaboration Node
+void execute_subtasks(CollaborationNode* collab_node) {
+    if (!collab_node || collab_node->subtask_count == 0) return;
+
+    printf("Executing subtasks in Collaboration Node %lu...\n", collab_node->id);
+
+    for (uint64_t i = 0; i < collab_node->subtask_count; i++) {
+        Task* subtask = collab_node->subtasks[i];
+        if (subtask) {
+            printf("Executing Subtask %lu (Priority: %u, Energy Required: %lu)...\n",
+                   subtask->task_id, subtask->priority, subtask->energy_required);
+            free(subtask);
+        }
+    }
+
+    collab_node->subtask_count = 0; // Reset subtask count after execution
+}
+
+// Destroy the Collaboration Node
+void destroy_collaboration_node(CollaborationNode* collab_node) {
+    if (collab_node) {
+        for (uint64_t i = 0; i < collab_node->subtask_count; i++) {
+            free(collab_node->subtasks[i]);
+        }
+        free(collab_node->subtasks);
+        free(collab_node);
+    }
+}
+===== END OF ./collaboration/collaboration_nodes.h =====
+
+===== START OF ./ingestion/binary_converter.h =====
+#ifndef DATA_INGESTION_H
+#define DATA_INGESTION_H
+
+#include <stdint.h>
+#include "binary_converter.h"
+
+// Data ingestion structure
+typedef struct {
+    char** binary_entries;
+    uint64_t max_entries;
+    uint64_t current_count;
+} DataIngestionLayer;
+
+// Function declarations
+DataIngestionLayer* init_data_ingestion_layer(uint64_t max_entries);
+void ingest_data(DataIngestionLayer* layer, const char* text);
+void free_ingestion_layer(DataIngestionLayer* layer);
+
+#endif // DATA_INGESTION_H
+===== END OF ./ingestion/binary_converter.h =====
+
+===== START OF ./ingestion/data_ingestion.c =====
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "data_ingestion.h"
+
+// Initialize the Data Ingestion Layer
+DataIngestionLayer* init_data_ingestion_layer(uint64_t max_entries) {
+    DataIngestionLayer* layer = (DataIngestionLayer*)malloc(sizeof(DataIngestionLayer));
+    if (!layer) {
+        printf("Error: Failed to allocate memory for Data Ingestion Layer.\n");
+        return NULL;
+    }
+
+    layer->binary_entries = (char**)malloc(sizeof(char*) * max_entries);
+    if (!layer->binary_entries) {
+        free(layer);
+        printf("Error: Failed to allocate memory for binary entries.\n");
+        return NULL;
+    }
+
+    layer->max_entries = max_entries;
+    layer->current_count = 0;
+
+    printf("Data Ingestion Layer initialized with capacity for %lu entries.\n", max_entries);
+    return layer;
+}
+
+// Ingest Data
+void ingest_data(DataIngestionLayer* layer, const char* text) {
+    if (!layer || layer->current_count >= layer->max_entries) {
+        printf("Error: Data Ingestion Layer is full or uninitialized.\n");
+        return;
+    }
+
+    // Convert text to binary
+    char* binary_entry = to_binary(text);
+    if (!binary_entry) {
+        printf("Error: Failed to convert text to binary.\n");
+        return;
+    }
+
+    layer->binary_entries[layer->current_count++] = binary_entry;
+    printf("Ingested Data: %s\n", text);
+    printf("Stored as Binary: %s\n", binary_entry);
+}
+
+// Free Ingestion Layer
+void free_ingestion_layer(DataIngestionLayer* layer) {
+    if (!layer) return;
+
+    for (uint64_t i = 0; i < layer->current_count; i++) {
+        free(layer->binary_entries[i]);
+    }
+    free(layer->binary_entries);
+    free(layer);
+
+    printf("Data Ingestion Layer destroyed.\n");
+}
+===== END OF ./ingestion/data_ingestion.c =====
+
+===== START OF ./ingestion/data_ingestion.h =====
+#ifndef DATA_INGESTION_H
+#define DATA_INGESTION_H
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+// Ingestion Layer Structure
+typedef struct {
+    char** text_data;
+    double** numerical_data;
+    char** visual_data;
+    uint64_t text_count;
+    uint64_t numerical_count;
+    uint64_t visual_count;
+    uint64_t max_entries;
+} DataIngestionLayer;
+
+// Function Prototypes
+DataIngestionLayer* init_data_ingestion_layer(uint64_t max_entries);
+void ingest_text(DataIngestionLayer* layer, const char* text);
+void ingest_numerical(DataIngestionLayer* layer, double* numbers, uint64_t count);
+void ingest_visual(DataIngestionLayer* layer, const char* visual_input);
+void get_ingested_data(DataIngestionLayer* layer);
+void destroy_data_ingestion_layer(DataIngestionLayer* layer);
+
+#endif // DATA_INGESTION_H
+
+#include "data_ingestion.h"
+
+// Initialize the Data Ingestion Layer
+DataIngestionLayer* init_data_ingestion_layer(uint64_t max_entries) {
+    DataIngestionLayer* layer = (DataIngestionLayer*)malloc(sizeof(DataIngestionLayer));
+    if (!layer) return NULL;
+
+    layer->text_data = (char**)malloc(sizeof(char*) * max_entries);
+    layer->numerical_data = (double**)malloc(sizeof(double*) * max_entries);
+    layer->visual_data = (char**)malloc(sizeof(char*) * max_entries);
+
+    layer->text_count = 0;
+    layer->numerical_count = 0;
+    layer->visual_count = 0;
+    layer->max_entries = max_entries;
+
+    return layer;
+}
+
+// Ingest Text Data
+void ingest_text(DataIngestionLayer* layer, const char* text) {
+    if (!layer || layer->text_count >= layer->max_entries) return;
+
+    layer->text_data[layer->text_count] = strdup(text);
+    layer->text_count++;
+    printf("Ingested text: %s\n", text);
+}
+
+// Ingest Numerical Data
+void ingest_numerical(DataIngestionLayer* layer, double* numbers, uint64_t count) {
+    if (!layer || layer->numerical_count >= layer->max_entries) return;
+
+    double min = numbers[0], max = numbers[0];
+    for (uint64_t i = 1; i < count; i++) {
+        if (numbers[i] < min) min = numbers[i];
+        if (numbers[i] > max) max = numbers[i];
+    }
+
+    double* normalized = (double*)malloc(sizeof(double) * count);
+    for (uint64_t i = 0; i < count; i++) {
+        normalized[i] = (numbers[i] - min) / (max - min);
+    }
+
+    layer->numerical_data[layer->numerical_count] = normalized;
+    layer->numerical_count++;
+    printf("Ingested numerical data.\n");
+}
+
+// Ingest Visual Data
+void ingest_visual(DataIngestionLayer* layer, const char* visual_input) {
+    if (!layer || layer->visual_count >= layer->max_entries) return;
+
+    layer->visual_data[layer->visual_count] = strdup(visual_input);
+    layer->visual_count++;
+    printf("Ingested visual data: %s\n", visual_input);
+}
+
+// Retrieve and Print Ingested Data
+void get_ingested_data(DataIngestionLayer* layer) {
+    if (!layer) return;
+
+    printf("Text Data:\n");
+    for (uint64_t i = 0; i < layer->text_count; i++) {
+        printf("  %s\n", layer->text_data[i]);
+    }
+
+    printf("Numerical Data:\n");
+    for (uint64_t i = 0; i < layer->numerical_count; i++) {
+        for (uint64_t j = 0; j < sizeof(layer->numerical_data[i]) / sizeof(double); j++) {
+            printf("  %.2f ", layer->numerical_data[i][j]);
+        }
+        printf("\n");
+    }
+
+    printf("Visual Data:\n");
+    for (uint64_t i = 0; i < layer->visual_count; i++) {
+        printf("  %s\n", layer->visual_data[i]);
+    }
+}
+
+// Destroy the Data Ingestion Layer
+void destroy_data_ingestion_layer(DataIngestionLayer* layer) {
+    if (layer) {
+        for (uint64_t i = 0; i < layer->text_count; i++) {
+            free(layer->text_data[i]);
+        }
+        for (uint64_t i = 0; i < layer->numerical_count; i++) {
+            free(layer->numerical_data[i]);
+        }
+        for (uint64_t i = 0; i < layer->visual_count; i++) {
+            free(layer->visual_data[i]);
+        }
+
+        free(layer->text_data);
+        free(layer->numerical_data);
+        free(layer->visual_data);
+        free(layer);
+    }
+}
+===== END OF ./ingestion/data_ingestion.h =====
+
+===== START OF ./ingestion/binary_converter.c =====
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "binary_converter.h"
+
+// Convert a string to binary representation
+char* to_binary(const char* input) {
+    if (!input) return NULL;
+
+    size_t length = strlen(input);
+    char* binary = (char*)malloc(length * 8 + 1); // 8 bits per character + null terminator
+    if (!binary) return NULL;
+
+    binary[0] = '\0'; // Initialize as empty string
+    for (size_t i = 0; i < length; i++) {
+        char temp[9]; // 8 bits + null terminator
+        snprintf(temp, sizeof(temp), "%08b", input[i]);
+        strcat(binary, temp);
+    }
+
+    return binary;
+}
+
+// Convert binary representation back to a string
+char* from_binary(const char* binary) {
+    if (!binary) return NULL;
+
+    size_t length = strlen(binary) / 8; // Each character is represented by 8 bits
+    char* text = (char*)malloc(length + 1); // +1 for null terminator
+    if (!text) return NULL;
+
+    for (size_t i = 0; i < length; i++) {
+        char temp[9]; // 8 bits + null terminator
+        strncpy(temp, &binary[i * 8], 8);
+        temp[8] = '\0'; // Null-terminate the binary substring
+        text[i] = strtol(temp, NULL, 2);
+    }
+    text[length] = '\0'; // Null-terminate the text string
+
+    return text;
+}
+===== END OF ./ingestion/binary_converter.c =====
+
+===== START OF ./diagnostics/self_diagnostic.h =====
+#ifndef SELF_DIAGNOSTIC_H
+#define SELF_DIAGNOSTIC_H
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+// Diagnostic State Structure
+typedef struct {
+    uint64_t node_id;
+    uint8_t is_healthy;
+    char* last_error;
+} DiagnosticState;
+
+// Self-Diagnostic System Structure
+typedef struct {
+    DiagnosticState* states;
+    uint64_t node_count;
+    uint64_t max_nodes;
+} SelfDiagnosticSystem;
+
+// Function Prototypes
+SelfDiagnosticSystem* init_self_diagnostic_system(uint64_t max_nodes);
+void check_node_health(SelfDiagnosticSystem* system, uint64_t node_id, uint8_t is_healthy, const char* error_message);
+void repair_fault(SelfDiagnosticSystem* system, uint64_t node_id);
+void display_diagnostic_report(SelfDiagnosticSystem* system);
+void destroy_self_diagnostic_system(SelfDiagnosticSystem* system);
+
+#endif // SELF_DIAGNOSTIC_H
+
+#include "self_diagnostic.h"
+
+// Initialize the Self-Diagnostic System
+SelfDiagnosticSystem* init_self_diagnostic_system(uint64_t max_nodes) {
+    SelfDiagnosticSystem* system = (SelfDiagnosticSystem*)malloc(sizeof(SelfDiagnosticSystem));
+    if (!system) return NULL;
+
+    system->states = (DiagnosticState*)malloc(sizeof(DiagnosticState) * max_nodes);
+    if (!system->states) {
+        free(system);
+        return NULL;
+    }
+
+    for (uint64_t i = 0; i < max_nodes; i++) {
+        system->states[i].node_id = i;
+        system->states[i].is_healthy = 1;
+        system->states[i].last_error = NULL;
+    }
+
+    system->node_count = 0;
+    system->max_nodes = max_nodes;
+
+    return system;
+}
+
+// Check Node Health
+void check_node_health(SelfDiagnosticSystem* system, uint64_t node_id, uint8_t is_healthy, const char* error_message) {
+    if (!system || node_id >= system->max_nodes) return;
+
+    DiagnosticState* state = &system->states[node_id];
+    state->is_healthy = is_healthy;
+
+    if (!is_healthy && error_message) {
+        state->last_error = strdup(error_message);
+        printf("Node %lu reported an error: %s\n", node_id, error_message);
+    } else {
+        free(state->last_error);
+        state->last_error = NULL;
+        printf("Node %lu is healthy.\n", node_id);
+    }
+}
+
+// Repair Fault
+void repair_fault(SelfDiagnosticSystem* system, uint64_t node_id) {
+    if (!system || node_id >= system->max_nodes) return;
+
+    DiagnosticState* state = &system->states[node_id];
+    if (!state->is_healthy) {
+        printf("Repairing Node %lu...\n", node_id);
+        free(state->last_error);
+        state->last_error = NULL;
+        state->is_healthy = 1;
+        printf("Node %lu repaired and marked as healthy.\n", node_id);
+    } else {
+        printf("Node %lu is already healthy. No repair needed.\n", node_id);
+    }
+}
+
+// Display Diagnostic Report
+void display_diagnostic_report(SelfDiagnosticSystem* system) {
+    if (!system) return;
+
+    printf("\n--- Diagnostic Report ---\n");
+    for (uint64_t i = 0; i < system->max_nodes; i++) {
+        DiagnosticState* state = &system->states[i];
+        printf("Node %lu: %s", state->node_id, state->is_healthy ? "Healthy" : "Faulty");
+        if (!state->is_healthy && state->last_error) {
+            printf(" (Error: %s)", state->last_error);
+        }
+        printf("\n");
+    }
+    printf("--------------------------\n");
+}
+
+// Destroy the Self-Diagnostic System
+void destroy_self_diagnostic_system(SelfDiagnosticSystem* system) {
+    if (system) {
+        for (uint64_t i = 0; i < system->max_nodes; i++) {
+            free(system->states[i].last_error);
+        }
+        free(system->states);
+        free(system);
+    }
+}
+===== END OF ./diagnostics/self_diagnostic.h =====
+
+===== START OF ./diagnostics/self_diagnostic.c =====
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "self_diagnostic.h"
+
+// Initialize the Diagnostic System
+SelfDiagnosticSystem* init_self_diagnostic_system(uint64_t max_nodes) {
+    SelfDiagnosticSystem* system = (SelfDiagnosticSystem*)malloc(sizeof(SelfDiagnosticSystem));
+    system->node_health = (NodeHealth*)malloc(sizeof(NodeHealth) * max_nodes);
+    system->max_nodes = max_nodes;
+    system->node_count = 0;
+
+    for (uint64_t i = 0; i < max_nodes; i++) {
+        system->node_health[i].node_id = 0;
+        system->node_health[i].energy = 0;
+        system->node_health[i].is_active = 0;
+        system->node_health[i].faults_detected = 0;
+    }
+
+    printf("Self-Diagnostic System initialized for %lu nodes.\n", max_nodes);
+    return system;
+}
+
+// Register a Node for Monitoring
+void register_node(SelfDiagnosticSystem* system, uint64_t node_id, uint64_t initial_energy) {
+    if (!system || system->node_count >= system->max_nodes) {
+        printf("Self-Diagnostic System: Cannot register node. Maximum capacity reached.\n");
+        return;
+    }
+
+    system->node_health[system->node_count++] = (NodeHealth){
+        .node_id = node_id,
+        .energy = initial_energy,
+        .is_active = 1,
+        .faults_detected = 0
+    };
+
+    printf("Node %lu registered with initial energy %lu.\n", node_id, initial_energy);
+}
+
+// Check Node Health
+int check_node_health(SelfDiagnosticSystem* system, uint64_t node_id) {
+    if (!system) return 0;
+
+    for (uint64_t i = 0; i < system->node_count; i++) {
+        if (system->node_health[i].node_id == node_id) {
+            NodeHealth* health = &system->node_health[i];
+
+            // Simulate a fault check
+            if (health->energy <= 10) {
+                printf("Node %lu: Low energy detected (%lu). Marking as inactive.\n", node_id, health->energy);
+                health->is_active = 0;
+                health->faults_detected++;
+                return 0; // Node is unhealthy
+            }
+
+            printf("Node %lu: Health check passed. Energy: %lu\n", node_id, health->energy);
+            return 1; // Node is healthy
+        }
+    }
+
+    printf("Node %lu not found in the diagnostic system.\n", node_id);
+    return 0;
+}
+
+// Repair Node Faults
+void repair_fault(SelfDiagnosticSystem* system, uint64_t node_id) {
+    if (!system) return;
+
+    for (uint64_t i = 0; i < system->node_count; i++) {
+        if (system->node_health[i].node_id == node_id) {
+            NodeHealth* health = &system->node_health[i];
+
+            if (!health->is_active) {
+                health->energy += 50; // Restore energy
+                health->is_active = 1;
+                printf("Node %lu: Fault repaired. Energy restored to %lu.\n", node_id, health->energy);
+            } else {
+                printf("Node %lu: No faults detected. No repair needed.\n", node_id);
+            }
+            return;
+        }
+    }
+
+    printf("Node %lu not found for repair in the diagnostic system.\n", node_id);
+}
+
+// Generate System Health Report
+void generate_health_report(SelfDiagnosticSystem* system) {
+    if (!system) return;
+
+    printf("\n--- System Health Report ---\n");
+    for (uint64_t i = 0; i < system->node_count; i++) {
+        NodeHealth* health = &system->node_health[i];
+        printf("Node %lu: Energy = %lu, Active = %d, Faults Detected = %lu\n",
+               health->node_id, health->energy, health->is_active, health->faults_detected);
+    }
+    printf("--- End of Report ---\n");
+}
+
+// Cleanup Diagnostic System
+void destroy_self_diagnostic_system(SelfDiagnosticSystem* system) {
+    if (system) {
+        free(system->node_health);
+        free(system);
+        printf("Self-Diagnostic System destroyed.\n");
+    }
+}
+===== END OF ./diagnostics/self_diagnostic.c =====
+
+===== START OF ./simulation/behavior_simulation.h =====
+#ifndef BEHAVIOR_SIMULATION_H
+#define BEHAVIOR_SIMULATION_H
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+// Node Structure for Simulation
+typedef struct {
+    uint64_t id;
+    uint64_t energy;
+    uint64_t tasks_completed;
+} SimulationNode;
+
+// Behavior Simulation Structure
+typedef struct {
+    SimulationNode* nodes;
+    uint64_t node_count;
+    uint64_t interaction_threshold;
+} BehaviorSimulation;
+
+// Function Prototypes
+BehaviorSimulation* init_behavior_simulation(uint64_t node_count, uint64_t interaction_threshold);
+void simulate_interactions(BehaviorSimulation* simulation);
+void predict_emergent_behavior(BehaviorSimulation* simulation);
+void run_simulation(BehaviorSimulation* simulation, uint64_t cycles);
+void destroy_behavior_simulation(BehaviorSimulation* simulation);
+
+#endif // BEHAVIOR_SIMULATION_H
+
+#include "behavior_simulation.h"
+
+// Initialize the Behavior Simulation
+BehaviorSimulation* init_behavior_simulation(uint64_t node_count, uint64_t interaction_threshold) {
+    BehaviorSimulation* simulation = (BehaviorSimulation*)malloc(sizeof(BehaviorSimulation));
+    if (!simulation) return NULL;
+
+    simulation->nodes = (SimulationNode*)malloc(sizeof(SimulationNode) * node_count);
+    if (!simulation->nodes) {
+        free(simulation);
+        return NULL;
+    }
+
+    for (uint64_t i = 0; i < node_count; i++) {
+        simulation->nodes[i].id = i;
+        simulation->nodes[i].energy = 100;
+        simulation->nodes[i].tasks_completed = 0;
+    }
+
+    simulation->node_count = node_count;
+    simulation->interaction_threshold = interaction_threshold;
+
+    return simulation;
+}
+
+// Simulate Interactions Between Nodes
+void simulate_interactions(BehaviorSimulation* simulation) {
+    if (!simulation) return;
+
+    printf("Simulating interactions...\n");
+    for (uint64_t i = 0; i < simulation->node_count; i++) {
+        for (uint64_t j = 0; j < simulation->node_count; j++) {
+            if (i != j) {
+                SimulationNode* node1 = &simulation->nodes[i];
+                SimulationNode* node2 = &simulation->nodes[j];
+                if (abs((int64_t)(node1->energy - node2->energy)) < simulation->interaction_threshold) {
+                    uint64_t energy_exchange = (node1->energy - node2->energy) / 2;
+                    node1->energy -= energy_exchange;
+                    node2->energy += energy_exchange;
+                    printf("Node %lu exchanged energy with Node %lu. New energies: %lu, %lu\n", node1->id, node2->id, node1->energy, node2->energy);
+                }
+            }
+        }
+    }
+}
+
+// Predict Emergent Behaviors
+void predict_emergent_behavior(BehaviorSimulation* simulation) {
+    if (!simulation) return;
+
+    printf("Predicting emergent behaviors...\n");
+    uint64_t total_energy = 0;
+    for (uint64_t i = 0; i < simulation->node_count; i++) {
+        total_energy += simulation->nodes[i].energy;
+    }
+
+    uint64_t average_energy = total_energy / simulation->node_count;
+    printf("Average energy: %lu\n", average_energy);
+
+    printf("Nodes above average energy: ");
+    for (uint64_t i = 0; i < simulation->node_count; i++) {
+        if (simulation->nodes[i].energy > average_energy) {
+            printf("%lu ", simulation->nodes[i].id);
+        }
+    }
+    printf("\n");
+}
+
+// Run the Simulation for Multiple Cycles
+void run_simulation(BehaviorSimulation* simulation, uint64_t cycles) {
+    if (!simulation) return;
+
+    for (uint64_t cycle = 0; cycle < cycles; cycle++) {
+        printf("\n--- Simulation Cycle %lu ---\n", cycle + 1);
+        simulate_interactions(simulation);
+        predict_emergent_behavior(simulation);
+    }
+}
+
+// Destroy the Behavior Simulation
+void destroy_behavior_simulation(BehaviorSimulation* simulation) {
+    if (simulation) {
+        free(simulation->nodes);
+        free(simulation);
+    }
+}
+===== END OF ./simulation/behavior_simulation.h =====
+
+===== START OF ./simulation/simulation_layer.c =====
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <pthread.h>
+#include "simulation_layer.h"
+
+// Initialize Simulation Layer
+SimulationLayer* init_simulation_layer(uint64_t max_simulations) {
+    SimulationLayer* layer = (SimulationLayer*)malloc(sizeof(SimulationLayer));
+    if (!layer) {
+        printf("Error: Failed to allocate memory for Simulation Layer.\n");
+        return NULL;
+    }
+
+    layer->simulations = (SimulationResult*)malloc(sizeof(SimulationResult) * max_simulations);
+    layer->max_simulations = max_simulations;
+    layer->current_simulations = 0;
+
+    printf("Simulation Layer initialized with capacity for %lu simulations.\n", max_simulations);
+    return layer;
+}
+
+// Run Simulation
+void run_simulation(SimulationLayer* layer, const char* meta_insight) {
+    if (!layer || !meta_insight) {
+        printf("Simulation Layer: Invalid meta-insight.\n");
+        return;
+    }
+
+    if (layer->current_simulations >= layer->max_simulations) {
+        printf("Simulation Layer: Simulation queue full.\n");
+        return;
+    }
+
+    printf("Running simulation for: %s\n", meta_insight);
+
+    // Mock simulation results
+    SimulationResult result;
+    snprintf(result.description, sizeof(result.description), "Simulation Result for [%s]", meta_insight);
+    result.is_valid = rand() % 2; // Randomly validate or reject
+
+    layer->simulations[layer->current_simulations++] = result;
+
+    if (result.is_valid) {
+        printf("Simulation Output: Validated - %s\n", result.description);
+    } else {
+        printf("Simulation Output: Rejected - %s\n", result.description);
+    }
+}
+
+// Retrieve Results
+void get_simulation_results(SimulationLayer* layer) {
+    if (!layer || layer->current_simulations == 0) {
+        printf("Simulation Layer: No simulations to retrieve.\n");
+        return;
+    }
+
+    printf("\n--- Simulation Results ---\n");
+    for (uint64_t i = 0; i < layer->current_simulations; i++) {
+        printf("Result %lu: %s (Valid: %s)\n", i + 1,
+               layer->simulations[i].description,
+               layer->simulations[i].is_valid ? "Yes" : "No");
+    }
+    printf("--- End of Results ---\n");
+}
+
+// Destroy Simulation Layer
+void destroy_simulation_layer(SimulationLayer* layer) {
+    if (layer) {
+        free(layer->simulations);
+        free(layer);
+        printf("Simulation Layer destroyed.\n");
+    }
+}
+===== END OF ./simulation/simulation_layer.c =====
+
+===== START OF ./simulation/behavior_simulation.c =====
+#include "behavior_simulation.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
+
+// Initialize the Behavior Simulation
+BehaviorSimulation* init_behavior_simulation(uint64_t node_count, uint64_t interaction_threshold) {
+    BehaviorSimulation* simulation = (BehaviorSimulation*)malloc(sizeof(BehaviorSimulation));
+    if (!simulation) return NULL;
+
+    simulation->nodes = (SimulationNode*)malloc(sizeof(SimulationNode) * node_count);
+    if (!simulation->nodes) {
+        free(simulation);
+        return NULL;
+    }
+
+    for (uint64_t i = 0; i < node_count; i++) {
+        simulation->nodes[i].id = i;
+        simulation->nodes[i].energy = 100; // Default energy
+        simulation->nodes[i].tasks_completed = 0;
+    }
+
+    simulation->node_count = node_count;
+    simulation->interaction_threshold = interaction_threshold;
+
+    printf("Behavior Simulation initialized with %lu nodes and interaction threshold %lu.\n", node_count, interaction_threshold);
+    return simulation;
+}
+
+// Simulate Interactions Between Nodes
+void simulate_interactions(BehaviorSimulation* simulation) {
+    if (!simulation) return;
+
+    printf("Simulating interactions...\n");
+    for (uint64_t i = 0; i < simulation->node_count; i++) {
+        for (uint64_t j = 0; j < simulation->node_count; j++) {
+            if (i != j) {
+                SimulationNode* node1 = &simulation->nodes[i];
+                SimulationNode* node2 = &simulation->nodes[j];
+                if (abs((int64_t)(node1->energy - node2->energy)) < simulation->interaction_threshold) {
+                    uint64_t energy_exchange = (node1->energy - node2->energy) / 2;
+                    node1->energy -= energy_exchange;
+                    node2->energy += energy_exchange;
+                    printf("Node %lu exchanged energy with Node %lu. New energies: %lu, %lu\n", node1->id, node2->id, node1->energy, node2->energy);
+                }
+            }
+        }
+    }
+}
+
+// Predict Emergent Behaviors
+void predict_emergent_behavior(BehaviorSimulation* simulation) {
+    if (!simulation) return;
+
+    printf("Predicting emergent behaviors...\n");
+    uint64_t total_energy = 0;
+    for (uint64_t i = 0; i < simulation->node_count; i++) {
+        total_energy += simulation->nodes[i].energy;
+    }
+
+    uint64_t average_energy = total_energy / simulation->node_count;
+    printf("Average energy: %lu\n", average_energy);
+
+    printf("Nodes above average energy: ");
+    for (uint64_t i = 0; i < simulation->node_count; i++) {
+        if (simulation->nodes[i].energy > average_energy) {
+            printf("%lu ", simulation->nodes[i].id);
+        }
+    }
+    printf("\n");
+}
+
+// Destroy the Behavior Simulation
+void destroy_behavior_simulation(BehaviorSimulation* simulation) {
+    if (simulation) {
+        free(simulation->nodes);
+        free(simulation);
+        printf("Behavior Simulation destroyed.\n");
+    }
+}
+===== END OF ./simulation/behavior_simulation.c =====
+
+===== START OF ./Makefile =====
+###############################################################################
+# Makefile for building the "ai_system" project from within the ai_systems/ dir
+###############################################################################
+
+# -----------------------------------------------------------------------------
+# Compiler and Flags
+# -----------------------------------------------------------------------------
+CC      := gcc
+CFLAGS  := -Wall -g -O2
+
+# Include paths for all subdirectories + current directory (since main.c is here)
+CFLAGS  += -I. \
+           -Icollaboration \
+           -Icore \
+           -Idiagnostics \
+           -Iengines \
+           -Ienvironment \
+           -Iethics \
+           -Iingestion \
+           -Iintegration \
+           -Ilearning \
+           -Imemory \
+           -Ioptimization \
+           -Ipredictive \
+           -Isimulation \
+           -Itask_manager \
+           -Ivisualization
+
+LDFLAGS :=  # Add linker flags here if needed (e.g., -lm)
+
+# -----------------------------------------------------------------------------
+# Directory and File Variables
+# -----------------------------------------------------------------------------
+# We're in ai_systems/, so OBJDIR = ../build (one level up)
+OBJDIR := ../build
+
+# Final output binary
+TARGET := ai_system
+
+# List of subdirectories in ai_systems
+MODULES := \
+  collaboration \
+  core \
+  diagnostics \
+  engines \
+  environment \
+  ethics \
+  ingestion \
+  integration \
+  learning \
+  memory \
+  optimization \
+  predictive \
+  simulation \
+  task_manager \
+  visualization
+
+# Collect main.c plus all .c files from each module subfolder
+SOURCES := $(wildcard main.c)
+SOURCES += $(foreach module, $(MODULES), $(wildcard $(module)/*.c))
+
+# Convert .c -> corresponding .o in ../build/...
+OBJECTS := $(patsubst %.c, $(OBJDIR)/%.o, $(SOURCES))
+
+# -----------------------------------------------------------------------------
+# Default Target
+# -----------------------------------------------------------------------------
+.PHONY: all
+all: $(TARGET)
+
+# -----------------------------------------------------------------------------
+# Linking the Final Executable
+# -----------------------------------------------------------------------------
+$(TARGET): $(OBJECTS)
+	@echo "[Linking $(TARGET)]"
+	$(CC) $(LDFLAGS) -o $@ $^
+	@echo "Build complete: $(TARGET)"
+
+# -----------------------------------------------------------------------------
+# Compiling Each .c Into .o
+# -----------------------------------------------------------------------------
+$(OBJDIR)/%.o: %.c
+	@mkdir -p $(dir $@)
+	@echo "[Compiling] $< -> $@"
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# -----------------------------------------------------------------------------
+# (Optional) Dependency Generation
+# -----------------------------------------------------------------------------
+$(OBJDIR)/%.d: %.c
+	@mkdir -p $(dir $@)
+	@echo "[Generating dependencies for $<]"
+	$(CC) $(CFLAGS) -MM $< -MT $@ -MT $(patsubst %.d,%.o,$@) > $@
+
+-include $(OBJECTS:.o=.d)
+
+# -----------------------------------------------------------------------------
+# Clean
+# -----------------------------------------------------------------------------
+.PHONY: clean
+clean:
+	@echo "[Cleaning build files]"
+	rm -rf $(OBJDIR) $(TARGET)
+
+# -----------------------------------------------------------------------------
+# Install
+# (Copies the final binary to /usr/local/bin; adjust as desired.)
+# -----------------------------------------------------------------------------
+.PHONY: install
+install: $(TARGET)
+	@echo "[Installing $(TARGET) to /usr/local/bin]"
+	cp $(TARGET) /usr/local/bin/
+
+# -----------------------------------------------------------------------------
+# Debug Build
+# -----------------------------------------------------------------------------
+.PHONY: debug
+debug:
+	$(MAKE) CFLAGS="-Wall -g -DDEBUG" all
+
+# -----------------------------------------------------------------------------
+# Release Build
+# -----------------------------------------------------------------------------
+.PHONY: release
+release:
+	$(MAKE) CFLAGS="-Wall -O3 -DNDEBUG" all
+
+# -----------------------------------------------------------------------------
+# Silent
+# -----------------------------------------------------------------------------
+.PHONY: silent
+silent:
+	$(MAKE) -s all
+
+===== END OF ./Makefile =====
+
+===== START OF ./predictive/predictive_modeling.c =====
+#include "predictive_modeling.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
+
+// Initialize the Predictive Model
+PredictiveModel* init_predictive_model(uint64_t max_data_points) {
+    PredictiveModel* model = (PredictiveModel*)malloc(sizeof(PredictiveModel));
+    if (!model) return NULL;
+
+    model->historical_data = (double*)malloc(sizeof(double) * max_data_points);
+    if (!model->historical_data) {
+        free(model);
+        return NULL;
+    }
+
+    model->data_count = 0;
+    model->max_data_points = max_data_points;
+
+    printf("Predictive Model initialized with a capacity for %lu data points.\n", max_data_points);
+    return model;
+}
+
+// Add a Data Point to the Model
+void add_data_point(PredictiveModel* model, double value) {
+    if (!model || model->data_count >= model->max_data_points) {
+        printf("Predictive Model: Cannot add data point. Capacity reached or uninitialized model.\n");
+        return;
+    }
+
+    model->historical_data[model->data_count++] = value;
+    printf("Added data point: %.2f (Total points: %lu)\n", value, model->data_count);
+}
+
+// Forecast the Next Value Using Linear Regression
+double forecast_next_value(PredictiveModel* model) {
+    if (!model || model->data_count < 2) {
+        printf("Insufficient data for forecasting.\n");
+        return 0.0;
+    }
+
+    // Calculate linear regression coefficients
+    double sum_x = 0.0, sum_y = 0.0, sum_xy = 0.0, sum_x2 = 0.0;
+    for (uint64_t i = 0; i < model->data_count; i++) {
+        sum_x += i;
+        sum_y += model->historical_data[i];
+        sum_xy += i * model->historical_data[i];
+        sum_x2 += i * i;
+    }
+
+    double n = (double)model->data_count;
+    double slope = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x * sum_x);
+    double intercept = (sum_y - slope * sum_x) / n;
+
+    // Predict the next value
+    double next_x = (double)model->data_count;
+    double forecast = slope * next_x + intercept;
+
+    printf("Forecasted next value: %.2f\n", forecast);
+    return forecast;
+}
+
+// Destroy the Predictive Model
+void destroy_predictive_model(PredictiveModel* model) {
+    if (model) {
+        free(model->historical_data);
+        free(model);
+        printf("Predictive Model destroyed.\n");
+    }
+}
+===== END OF ./predictive/predictive_modeling.c =====
+
+===== START OF ./predictive/anomaly_detection.c =====
+#include "anomaly_detection.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
+
+// Initialize the Anomaly Detector
+AnomalyDetector* init_anomaly_detector(uint64_t max_data_points, double threshold) {
+    AnomalyDetector* detector = (AnomalyDetector*)malloc(sizeof(AnomalyDetector));
+    if (!detector) return NULL;
+
+    detector->data_points = (double*)malloc(sizeof(double) * max_data_points);
+    if (!detector->data_points) {
+        free(detector);
+        return NULL;
+    }
+
+    detector->data_count = 0;
+    detector->max_data_points = max_data_points;
+    detector->threshold = threshold;
+
+    printf("Anomaly Detector initialized with threshold %.2f and capacity for %lu data points.\n", threshold, max_data_points);
+    return detector;
+}
+
+// Add a Data Point to the Detector
+void add_data_point(AnomalyDetector* detector, double value) {
+    if (!detector || detector->data_count >= detector->max_data_points) {
+        printf("Anomaly Detector: Cannot add data point. Capacity reached or uninitialized detector.\n");
+        return;
+    }
+
+    detector->data_points[detector->data_count++] = value;
+    printf("Added data point: %.2f (Total points: %lu)\n", value, detector->data_count);
+}
+
+// Detect Anomalies Using Standard Deviation
+uint8_t detect_anomaly(AnomalyDetector* detector) {
+    if (!detector || detector->data_count < 2) {
+        printf("Insufficient data for anomaly detection.\n");
+        return 0;
+    }
+
+    // Calculate mean
+    double sum = 0.0;
+    for (uint64_t i = 0; i < detector->data_count; i++) {
+        sum += detector->data_points[i];
+    }
+    double mean = sum / detector->data_count;
+
+    // Calculate standard deviation
+    double variance_sum = 0.0;
+    for (uint64_t i = 0; i < detector->data_count; i++) {
+        variance_sum += pow(detector->data_points[i] - mean, 2);
+    }
+    double stddev = sqrt(variance_sum / detector->data_count);
+
+    // Detect anomalies
+    double last_point = detector->data_points[detector->data_count - 1];
+    if (fabs(last_point - mean) > detector->threshold * stddev) {
+        printf("Anomaly detected: %.2f (Threshold: %.2f)\n", last_point, detector->threshold * stddev);
+        return 1; // Anomaly detected
+    }
+
+    printf("No anomaly detected.\n");
+    return 0; // No anomaly
+}
+
+// Destroy the Anomaly Detector
+void destroy_anomaly_detector(AnomalyDetector* detector) {
+    if (detector) {
+        free(detector->data_points);
+        free(detector);
+        printf("Anomaly Detector destroyed.\n");
+    }
+}
+===== END OF ./predictive/anomaly_detection.c =====
+
+===== START OF ./predictive/anomaly_detection.h =====
+#ifndef ANOMALY_DETECTION_H
+#define ANOMALY_DETECTION_H
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
+
+// Anomaly Detection Structure
+typedef struct {
+    double* data_points;
+    uint64_t data_count;
+    uint64_t max_data_points;
+    double threshold;
+} AnomalyDetector;
+
+// Function Prototypes
+AnomalyDetector* init_anomaly_detector(uint64_t max_data_points, double threshold);
+void add_data_point(AnomalyDetector* detector, double value);
+uint8_t detect_anomaly(AnomalyDetector* detector);
+void destroy_anomaly_detector(AnomalyDetector* detector);
+
+#endif // ANOMALY_DETECTION_H
+
+#include "anomaly_detection.h"
+
+// Initialize the Anomaly Detector
+AnomalyDetector* init_anomaly_detector(uint64_t max_data_points, double threshold) {
+    AnomalyDetector* detector = (AnomalyDetector*)malloc(sizeof(AnomalyDetector));
+    if (!detector) return NULL;
+
+    detector->data_points = (double*)malloc(sizeof(double) * max_data_points);
+    if (!detector->data_points) {
+        free(detector);
+        return NULL;
+    }
+
+    detector->data_count = 0;
+    detector->max_data_points = max_data_points;
+    detector->threshold = threshold;
+
+    return detector;
+}
+
+// Add a Data Point to the Detector
+void add_data_point(AnomalyDetector* detector, double value) {
+    if (!detector || detector->data_count >= detector->max_data_points) return;
+
+    detector->data_points[detector->data_count++] = value;
+    printf("Added data point: %.2f (Total points: %lu)\n", value, detector->data_count);
+}
+
+// Detect Anomalies Using Standard Deviation
+uint8_t detect_anomaly(AnomalyDetector* detector) {
+    if (!detector || detector->data_count < 2) {
+        printf("Insufficient data for anomaly detection.\n");
+        return 0;
+    }
+
+    // Calculate mean
+    double sum = 0.0;
+    for (uint64_t i = 0; i < detector->data_count; i++) {
+        sum += detector->data_points[i];
+    }
+    double mean = sum / detector->data_count;
+
+    // Calculate standard deviation
+    double variance_sum = 0.0;
+    for (uint64_t i = 0; i < detector->data_count; i++) {
+        variance_sum += pow(detector->data_points[i] - mean, 2);
+    }
+    double stddev = sqrt(variance_sum / detector->data_count);
+
+    // Detect anomalies
+    double last_point = detector->data_points[detector->data_count - 1];
+    if (fabs(last_point - mean) > detector->threshold * stddev) {
+        printf("Anomaly detected: %.2f (Threshold: %.2f)\n", last_point, detector->threshold * stddev);
+        return 1; // Anomaly detected
+    }
+
+    printf("No anomaly detected.\n");
+    return 0; // No anomaly
+}
+
+// Destroy the Anomaly Detector
+void destroy_anomaly_detector(AnomalyDetector* detector) {
+    if (detector) {
+        free(detector->data_points);
+        free(detector);
+    }
+}
+===== END OF ./predictive/anomaly_detection.h =====
+
+===== START OF ./predictive/predictive_modeling.h =====
+#ifndef PREDICTIVE_MODELING_H
+#define PREDICTIVE_MODELING_H
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
+
+// Predictive Model Structure
+typedef struct {
+    double* historical_data;
+    uint64_t data_count;
+    uint64_t max_data_points;
+} PredictiveModel;
+
+// Function Prototypes
+PredictiveModel* init_predictive_model(uint64_t max_data_points);
+void add_data_point(PredictiveModel* model, double value);
+double forecast_next_value(PredictiveModel* model);
+void destroy_predictive_model(PredictiveModel* model);
+
+#endif // PREDICTIVE_MODELING_H
+
+#include "predictive_modeling.h"
+
+// Initialize the Predictive Model
+PredictiveModel* init_predictive_model(uint64_t max_data_points) {
+    PredictiveModel* model = (PredictiveModel*)malloc(sizeof(PredictiveModel));
+    if (!model) return NULL;
+
+    model->historical_data = (double*)malloc(sizeof(double) * max_data_points);
+    if (!model->historical_data) {
+        free(model);
+        return NULL;
+    }
+
+    model->data_count = 0;
+    model->max_data_points = max_data_points;
+
+    return model;
+}
+
+// Add a Data Point to the Model
+void add_data_point(PredictiveModel* model, double value) {
+    if (!model || model->data_count >= model->max_data_points) return;
+
+    model->historical_data[model->data_count++] = value;
+    printf("Added data point: %.2f (Total points: %lu)\n", value, model->data_count);
+}
+
+// Forecast the Next Value Using Simple Linear Regression
+double forecast_next_value(PredictiveModel* model) {
+    if (!model || model->data_count < 2) {
+        printf("Insufficient data for forecasting.\n");
+        return 0.0;
+    }
+
+    // Calculate linear regression coefficients
+    double sum_x = 0.0, sum_y = 0.0, sum_xy = 0.0, sum_x2 = 0.0;
+    for (uint64_t i = 0; i < model->data_count; i++) {
+        sum_x += i;
+        sum_y += model->historical_data[i];
+        sum_xy += i * model->historical_data[i];
+        sum_x2 += i * i;
+    }
+
+    double n = (double)model->data_count;
+    double slope = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x * sum_x);
+    double intercept = (sum_y - slope * sum_x) / n;
+
+    // Predict the next value
+    double next_x = (double)model->data_count;
+    double forecast = slope * next_x + intercept;
+
+    printf("Forecasted next value: %.2f\n", forecast);
+    return forecast;
+}
+
+// Destroy the Predictive Model
+void destroy_predictive_model(PredictiveModel* model) {
+    if (model) {
+        free(model->historical_data);
+        free(model);
+    }
+}
+===== END OF ./predictive/predictive_modeling.h =====
+
+===== START OF ./task_manager/task_manager.h =====
+#include <pthread.h>
+#include "task_manager.h"
+
+// Thread function for processing tasks
+void* process_task_thread(void* arg) {
+    TaskManager* manager = (TaskManager*)arg;
+    Task* task;
+
+    while ((task = get_next_task(manager)) != NULL) {
+        // Process task in Primary Engine (or other modules)
+        printf("Processing Task %lu: %s\n", task->task_id, task->task_data);
+        // Simulate task execution
+        usleep(1000); // Mock task duration
+    }
+    return NULL;
+}
+
+// Multi-threaded Task Processing
+void process_tasks_multithreaded(TaskManager* manager, int thread_count) {
+    pthread_t threads[thread_count];
+
+    for (int i = 0; i < thread_count; i++) {
+        pthread_create(&threads[i], NULL, process_task_thread, (void*)manager);
+    }
+
+    for (int i = 0; i < thread_count; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
+    printf("All tasks processed.\n");
+}
+===== END OF ./task_manager/task_manager.h =====
+
+===== START OF ./task_manager/task_manager.c =====
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "task_manager.h"
+
+// Initialize the Task Manager
+TaskManager* init_task_manager(uint64_t max_tasks) {
+    TaskManager* manager = (TaskManager*)malloc(sizeof(TaskManager));
+    if (!manager) {
+        printf("Error: Failed to allocate memory for Task Manager.\n");
+        return NULL;
+    }
+
+    manager->task_queue = (Task*)malloc(sizeof(Task) * max_tasks);
+    if (!manager->task_queue) {
+        free(manager);
+        printf("Error: Failed to allocate memory for Task Queue.\n");
+        return NULL;
+    }
+
+    manager->max_tasks = max_tasks;
+    manager->task_count = 0;
+
+    printf("Task Manager initialized with a capacity of %lu tasks.\n", max_tasks);
+    return manager;
+}
+
+// Add a Task to the Queue
+void add_task(TaskManager* manager, Task* task) {
+    if (!manager || manager->task_count >= manager->max_tasks) {
+        printf("Task Manager: Cannot add task. Queue is full or uninitialized.\n");
+        return;
+    }
+
+    manager->task_queue[manager->task_count++] = *task;
+    printf("Task %lu added with priority %u.\n", task->task_id, task->priority);
+}
+
+// Assign a Task to a Node
+Task* assign_task(TaskManager* manager, Node* node) {
+    if (!manager || manager->task_count == 0 || !node) {
+        return NULL;
+    }
+
+    Task* best_task = NULL;
+    int best_index = -1;
+
+    for (uint64_t i = 0; i < manager->task_count; i++) {
+        Task* current_task = &manager->task_queue[i];
+        if (current_task->energy_required <= node->energy &&
+            (!best_task || current_task->priority > best_task->priority)) {
+            best_task = current_task;
+            best_index = i;
+        }
+    }
+
+    if (best_task) {
+        // Shift tasks in the queue
+        for (uint64_t i = best_index; i < manager->task_count - 1; i++) {
+            manager->task_queue[i] = manager->task_queue[i + 1];
+        }
+        manager->task_count--;
+
+        printf("Task %lu assigned to Node %lu.\n", best_task->task_id, node->id);
+        return best_task;
+    }
+
+    printf("No suitable task found for Node %lu.\n", node->id);
+    return NULL;
+}
+
+// Prioritize Tasks Dynamically
+void reprioritize_tasks(TaskManager* manager) {
+    if (!manager || manager->task_count == 0) return;
+
+    printf("Reprioritizing tasks based on dynamic conditions...\n");
+    for (uint64_t i = 0; i < manager->task_count; i++) {
+        manager->task_queue[i].priority += rand() % 5; // Example: Dynamic boost
+        printf("Task %lu new priority: %u\n", manager->task_queue[i].task_id, manager->task_queue[i].priority);
+    }
+}
+
+// Clean Up Task Manager
+void destroy_task_manager(TaskManager* manager) {
+    if (manager) {
+        free(manager->task_queue);
+        free(manager);
+        printf("Task Manager destroyed.\n");
+    }
+}
+===== END OF ./task_manager/task_manager.c =====
+
+===== START OF ./engines/kaleidoscope_engine.c =====
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "kaleidoscope_engine.h"
+#include "memory_graph.h"
+
+// Initialize the Kaleidoscope Engine
+KaleidoscopeEngine* init_kaleidoscope_engine(MemoryGraph* memory_graph) {
+    KaleidoscopeEngine* engine = (KaleidoscopeEngine*)malloc(sizeof(KaleidoscopeEngine));
+    engine->memory_graph = memory_graph;
+    engine->insight_count = 0;
+    printf("Kaleidoscope Engine initialized.\n");
+    return engine;
+}
+
+// Process Data and Generate Insights
+void process_task(KaleidoscopeEngine* engine, const char* task_data) {
+    if (!engine || !task_data) {
+        printf("Kaleidoscope Engine: Invalid task data.\n");
+        return;
+    }
+
+    printf("Processing task: %s\n", task_data);
+
+    // Simulate insight generation
+    char insight[256];
+    snprintf(insight, sizeof(insight), "Insight from task '%s'", task_data);
+
+    // Add the insight to the Memory Graph
+    add_memory_node(engine->memory_graph, insight, rand() % 100);
+    engine->insight_count++;
+
+    printf("Kaleidoscope Engine generated insight: %s\n", insight);
+}
+
+// Feedback Loop for Refining Insights
+void refine_insights(KaleidoscopeEngine* engine, const char* feedback) {
+    if (!engine || !feedback) {
+        printf("Kaleidoscope Engine: Invalid feedback.\n");
+        return;
+    }
+
+    printf("Refining insights based on feedback: %s\n", feedback);
+
+    // Simulate refinement logic
+    MemoryNode* current = engine->memory_graph->head;
+    while (current) {
+        if (rand() % 2 == 0) { // Example: Randomly mark nodes as refined
+            current->relevance += 10;
+            printf("Refined Node %lu: %s (New Relevance: %d)\n", current->id, current->data, current->relevance);
+        }
+        current = current->next;
+    }
+}
+
+// Cleanup the Kaleidoscope Engine
+void destroy_kaleidoscope_engine(KaleidoscopeEngine* engine) {
+    if (engine) {
+        printf("Destroying Kaleidoscope Engine.\n");
+        free(engine);
+    }
+}
+===== END OF ./engines/kaleidoscope_engine.c =====
+
+===== START OF ./engines/aggregator_engine.c =====
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "aggregator_engine.h"
+#include "memory_graph.h"
+
+// Initialize Aggregated Kaleidoscope Engine
+AggregatorEngine* init_aggregator_engine(MemoryGraph* memory_graph) {
+    AggregatorEngine* engine = (AggregatorEngine*)malloc(sizeof(AggregatorEngine));
+    if (!engine) {
+        printf("Error: Failed to allocate memory for Aggregator Engine.\n");
+        return NULL;
+    }
+
+    engine->memory_graph = memory_graph;
+    engine->meta_insight_count = 0;
+
+    printf("Aggregator Kaleidoscope Engine initialized.\n");
+    return engine;
+}
+
+// Synthesize Insights
+void synthesize_insights(AggregatorEngine* engine, const char* primary_insight, const char* mirrored_hypothesis) {
+    if (!engine || !primary_insight || !mirrored_hypothesis) {
+        printf("Aggregator Engine: Invalid inputs.\n");
+        return;
+    }
+
+    printf("Synthesizing insights:\n  Primary: %s\n  Mirrored: %s\n", primary_insight, mirrored_hypothesis);
+
+    // Create a synthesized meta-insight
+    char meta_insight[512];
+    snprintf(meta_insight, sizeof(meta_insight), "Meta-Insight: [%s] combined with [%s]",
+             primary_insight, mirrored_hypothesis);
+
+    // Add to Memory Graph
+    add_memory_node(engine->memory_graph, meta_insight, rand() % 100);
+    engine->meta_insight_count++;
+
+    printf("Generated Meta-Insight: %s\n", meta_insight);
+}
+
+// Cleanup Aggregator Engine
+void destroy_aggregator_engine(AggregatorEngine* engine) {
+    if (engine) {
+        printf("Destroying Aggregator Kaleidoscope Engine.\n");
+        free(engine);
+    }
+}
+===== END OF ./engines/aggregator_engine.c =====
+
+===== START OF ./engines/mirrored_network.c =====
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "mirrored_engine.h"
+
+// Initialize the Mirrored Network
+MirroredNetwork* init_mirrored_network(uint64_t max_suggestions) {
+    MirroredNetwork* network = (MirroredNetwork*)malloc(sizeof(MirroredNetwork));
+    network->suggestions = (Suggestion*)malloc(sizeof(Suggestion) * max_suggestions);
+    network->max_suggestions = max_suggestions;
+    network->suggestion_count = 0;
+
+    printf("Mirrored Network initialized with capacity for %lu suggestions.\n", max_suggestions);
+    return network;
+}
+
+// Generate Speculative Thought
+void generate_suggestion(MirroredNetwork* network, const char* context) {
+    if (!network || network->suggestion_count >= network->max_suggestions) {
+        printf("Mirrored Network: Suggestion pool full or uninitialized.\n");
+        return;
+    }
+
+    Suggestion* suggestion = &network->suggestions[network->suggestion_count++];
+    snprintf(suggestion->description, sizeof(suggestion->description), "Speculative suggestion for context: %s", context);
+    suggestion->valid = 0; // Mark as speculative
+
+    printf("Mirrored Network generated suggestion: %s\n", suggestion->description);
+}
+
+// Provide Suggestions to Nodes
+void provide_suggestions_to_node(MirroredNetwork* network, Node* node) {
+    if (!network || !node) {
+        printf("Mirrored Network: Invalid node or network.\n");
+        return;
+    }
+
+    for (uint64_t i = 0; i < network->suggestion_count; i++) {
+        if (!network->suggestions[i].valid) {
+            printf("Node %lu received speculative suggestion: %s\n", node->id, network->suggestions[i].description);
+        }
+    }
+}
+
+// Cleanup the Mirrored Network
+void destroy_mirrored_network(MirroredNetwork* network) {
+    if (network) {
+        free(network->suggestions);
+        free(network);
+        printf("Mirrored Network destroyed.\n");
+    }
+}
+
+===== END OF ./engines/mirrored_network.c =====
+
+===== START OF ./engines/mirrored_engine.c =====
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "mirrored_engine.h"
+
+// Initialize the Mirrored Network
+MirroredNetwork* init_mirrored_network(uint64_t max_suggestions) {
+    MirroredNetwork* network = (MirroredNetwork*)malloc(sizeof(MirroredNetwork));
+    network->suggestions = (Suggestion*)malloc(sizeof(Suggestion) * max_suggestions);
+    network->max_suggestions = max_suggestions;
+    network->suggestion_count = 0;
+
+    printf("Mirrored Network initialized with capacity for %lu suggestions.\n", max_suggestions);
+    return network;
+}
+
+// Generate Speculative Thought
+void generate_suggestion(MirroredNetwork* network, const char* context) {
+    if (!network || network->suggestion_count >= network->max_suggestions) {
+        printf("Mirrored Network: Suggestion pool full or uninitialized.\n");
+        return;
+    }
+
+    Suggestion* suggestion = &network->suggestions[network->suggestion_count++];
+    snprintf(suggestion->description, sizeof(suggestion->description), "Speculative suggestion for context: %s", context);
+    suggestion->valid = 0; // Mark as speculative
+
+    printf("Mirrored Network generated suggestion: %s\n", suggestion->description);
+}
+
+// Provide Suggestions to Nodes
+void provide_suggestions_to_node(MirroredNetwork* network, Node* node) {
+    if (!network || !node) {
+        printf("Mirrored Network: Invalid node or network.\n");
+        return;
+    }
+
+    for (uint64_t i = 0; i < network->suggestion_count; i++) {
+        if (!network->suggestions[i].valid) {
+            printf("Node %lu received speculative suggestion: %s\n", node->id, network->suggestions[i].description);
+        }
+    }
+}
+
+// Cleanup the Mirrored Network
+void destroy_mirrored_network(MirroredNetwork* network) {
+    if (network) {
+        free(network->suggestions);
+        free(network);
+        printf("Mirrored Network destroyed.\n");
+    }
+}
+
+===== END OF ./engines/mirrored_engine.c =====
+
+===== START OF ./engines/final_kaleidoscope_engine.c =====
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "final_kaleidoscope_engine.h"
+#include "memory_graph.h"
+
+// Initialize Final Kaleidoscope Engine
+FinalEngine* init_final_engine(MemoryGraph* memory_graph) {
+    FinalEngine* engine = (FinalEngine*)malloc(sizeof(FinalEngine));
+    if (!engine) {
+        printf("Error: Failed to allocate memory for Final Kaleidoscope Engine.\n");
+        return NULL;
+    }
+
+    engine->memory_graph = memory_graph;
+    engine->master_insight_count = 0;
+
+    printf("Final Kaleidoscope Engine initialized.\n");
+    return engine;
+}
+
+// Generate Master Insight
+void generate_master_insight(FinalEngine* engine, const char* meta_insight) {
+    if (!engine || !meta_insight) {
+        printf("Final Engine: Invalid meta-insight.\n");
+        return;
+    }
+
+    printf("Processing meta-insight: %s\n", meta_insight);
+
+    // Create a master insight
+    char master_insight[512];
+    snprintf(master_insight, sizeof(master_insight), "Master Insight: Abstracted from [%s]", meta_insight);
+
+    // Store the master insight in the Memory Graph
+    add_memory_node(engine->memory_graph, master_insight, rand() % 100);
+    engine->master_insight_count++;
+
+    printf("Generated Master Insight: %s\n", master_insight);
+}
+
+// Cleanup Final Kaleidoscope Engine
+void destroy_final_engine(FinalEngine* engine) {
+    if (engine) {
+        printf("Destroying Final Kaleidoscope Engine.\n");
+        free(engine);
+    }
+}
+===== END OF ./engines/final_kaleidoscope_engine.c =====
+
+===== START OF ./engines/kaleidoscope_engine.h =====
+#ifndef KALEIDOSCOPE_ENGINE_H
+#define KALEIDOSCOPE_ENGINE_H
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "pattern_recognition.h"
+#include "optimization.h"
+
+// Kaleidoscope Engine Structure
+typedef struct {
+    PatternRecognizer* recognizer;
+    Optimizer* optimizer;
+} KaleidoscopeEngine;
+
+// Function Prototypes
+KaleidoscopeEngine* init_kaleidoscope_engine(void);
+void process_task(KaleidoscopeEngine* engine, const char* task_data);
+void destroy_kaleidoscope_engine(KaleidoscopeEngine* engine);
+
+#endif // KALEIDOSCOPE_ENGINE_H
+
+#include "kaleidoscope_engine.h"
+
+// Initialize the Kaleidoscope Engine
+KaleidoscopeEngine* init_kaleidoscope_engine(void) {
+    KaleidoscopeEngine* engine = (KaleidoscopeEngine*)malloc(sizeof(KaleidoscopeEngine));
+    if (!engine) return NULL;
+
+    engine->recognizer = init_pattern_recognizer();
+    engine->optimizer = init_optimizer();
+
+    if (!engine->recognizer || !engine->optimizer) {
+        destroy_kaleidoscope_engine(engine);
+        return NULL;
+    }
+
+    return engine;
+}
+
+// Process a Task in the Kaleidoscope Engine
+void process_task(KaleidoscopeEngine* engine, const char* task_data) {
+    if (!engine || !task_data) return;
+
+    printf("Processing task: %s\n", task_data);
+
+    // Recognize patterns
+    PatternResult* result = recognize_patterns(engine->recognizer, task_data);
+
+    // Optimize the recognized patterns
+    optimize_result(engine->optimizer, result);
+
+    // Print the optimized results
+    printf("Optimized task result: %s\n", result->optimized_data);
+
+    // Clean up
+    destroy_pattern_result(result);
+}
+
+// Destroy the Kaleidoscope Engine
+void destroy_kaleidoscope_engine(KaleidoscopeEngine* engine) {
+    if (engine) {
+        if (engine->recognizer) destroy_pattern_recognizer(engine->recognizer);
+        if (engine->optimizer) destroy_optimizer(engine->optimizer);
+        free(engine);
+    }
+}
+===== END OF ./engines/kaleidoscope_engine.h =====
+
+===== START OF ./engines/mirrored_engine.h =====
+#include "kaleidoscope_engine.h"
+#include "memory_graph.h"
+#include <stdio.h>
+
+// Simulate chemical compound interaction
+void simulate_compound_interaction(KaleidoscopeEngine* engine, const char* compound_data) {
+    printf("Simulating interaction for compound: %s\n", compound_data);
+
+    // Example logic: Evaluate compound based on disease data
+    int success_score = evaluate_compound(compound_data);
+    if (success_score > 70) {
+        printf("Simulation successful! Compound shows promise.\n");
+        add_memory_node(engine->memory_graph, compound_data, success_score);
+    } else {
+        printf("Simulation failed. Compound needs refinement.\n");
+    }
+}
+
+// Evaluate a chemical compound (mock implementation)
+int evaluate_compound(const char* compound_data) {
+    // Simulate scoring logic (placeholder for complex computation)
+    return rand() % 100;
+}
+===== END OF ./engines/mirrored_engine.h =====
+

@@ -1,0 +1,281 @@
+import numpy as np
+from scipy.spatial.distance import pdist, squareform
+import numba
+from typing import Dict, List, Tuple, Optional
+from dataclasses import dataclass
+
+@dataclass
+class ForceFieldParams:
+    cutoff: float = 12.0  # Angstroms
+    switch_distance: float = 10.0
+    pme_grid: int = 64
+    temperature: float = 300.0
+    pressure: float = 1.0  # atm
+    timestep: float = 0.002  # ps
+
+@numba.jit(nopython=True)
+def calculate_pair_energy(r: float, epsilon: float, sigma: float, charge_prod: float) -> Tuple[float, float]:
+    """Calculate LJ + Coulomb energy and force for atom pair"""
+    inv_r = 1.0/r
+    inv_r6 = inv_r**6
+    inv_r12 = inv_r6**2
+    
+    # Lennard-Jones
+    lj_energy = 4.0 * epsilon * (inv_r12 - inv_r6)
+    lj_force = 24.0 * epsilon * inv_r * (2.0 * inv_r12 - inv_r6)
+    
+    # Coulomb with reaction field
+    coulomb_energy = 138.935485 * charge_prod * inv_r  # k_coulomb in kJ/mol
+    coulomb_force = -coulomb_energy * inv_r
+    
+    return lj_energy + coulomb_energy, lj_force + coulomb_force
+
+class EnhancedMolecularDynamics:
+    def __init__(self, params: Optional[ForceFieldParams] = None):
+        self.params = params or ForceFieldParams()
+        self.setup_force_field()
+        self.setup_integrators()
+        self.initialize_pme()
+
+    def setup_force_field(self):
+        """Initialize comprehensive AMBER force field"""
+        self.force_field = {
+            'bonds': {
+                'C-C': {'k': 620.0, 'r0': 0.134, 'type': 'harmonic'},
+                'C-H': {'k': 340.0, 'r0': 0.109, 'type': 'harmonic'},
+                'C-N': {'k': 490.0, 'r0': 0.133, 'type': 'morse'},
+                'C-O': {'k': 570.0, 'r0': 0.123, 'type': 'morse'},
+                'O-H': {'k': 553.0, 'r0': 0.096, 'type': 'morse'},
+                'N-H': {'k': 434.0, 'r0': 0.101, 'type': 'harmonic'}
+            },
+            'angles': {
+                'C-C-C': {'k': 63.0, 'theta0': 120.0, 'type': 'harmonic'},
+                'C-C-H': {'k': 50.0, 'theta0': 120.0, 'type': 'harmonic'},
+                'C-N-H': {'k': 50.0, 'theta0': 120.0, 'type': 'urey_bradley',
+                         'k_ub': 20.0, 'r_ub': 0.2},
+                'H-C-H': {'k': 35.0, 'theta0': 109.5, 'type': 'harmonic'},
+                'C-O-H': {'k': 55.0, 'theta0': 108.5, 'type': 'harmonic'}
+            },
+            'dihedrals': {
+                'X-C-C-X': {
+                    'type': 'fourier',
+                    'params': [
+                        {'k': 8.37, 'n': 1, 'delta': 0.0},
+                        {'k': 0.0, 'n': 2, 'delta': 180.0},
+                        {'k': 0.0, 'n': 3, 'delta': 0.0}
+                    ]
+                },
+                'X-C-N-X': {
+                    'type': 'fourier',
+                    'params': [
+                        {'k': 8.37, 'n': 1, 'delta': 0.0},
+                        {'k': 0.0, 'n': 2, 'delta': 180.0},
+                        {'k': 0.0, 'n': 3, 'delta': 0.0}
+                    ]
+                }
+            },
+            'impropers': {
+                'C-X-X-X': {'k': 4.0, 'psi0': 180.0},
+                'N-X-X-X': {'k': 4.0, 'psi0': 180.0}
+            },
+            'vdw': {
+                'C': {'epsilon': 0.359, 'sigma': 0.340, 'alpha': 0.1},
+                'H': {'epsilon': 0.065, 'sigma': 0.247, 'alpha': 0.08},
+                'N': {'epsilon': 0.170, 'sigma': 0.325, 'alpha': 0.1},
+                'O': {'epsilon': 0.210, 'sigma': 0.296, 'alpha': 0.1}
+            },
+            'polarization': {
+                'C': {'alpha': 1.334},
+                'H': {'alpha': 0.496},
+                'N': {'alpha': 1.073},
+                'O': {'alpha': 0.852}
+            }
+        }
+
+    def setup_integrators(self):
+        """Initialize multiple integrator options"""
+        self.integrators = {
+            'velocity_verlet': self._velocity_verlet_step,
+            'langevin': self._langevin_step,
+            'nose_hoover': self._nose_hoover_step,
+            'adaptive': self._adaptive_timestep_step
+        }
+
+    def initialize_pme(self):
+        """Initialize Particle Mesh Ewald for long-range electrostatics"""
+        self.pme_grid = np.zeros((self.params.pme_grid,)*3, dtype=np.complex128)
+        self.k_vectors = self._setup_kvectors()
+        self.b_spline_weights = self._calculate_bspline_weights()
+
+    @numba.jit(nopython=True)
+    def _velocity_verlet_step(self, positions: np.ndarray, velocities: np.ndarray, 
+                            forces: np.ndarray, masses: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """Velocity Verlet integrator with RESPA multiple time stepping"""
+        dt = self.params.timestep
+        dt2 = dt * 0.5
+        inv_masses = 1.0 / masses
+
+        # Update positions
+        positions += velocities * dt + 0.5 * forces * inv_masses[:, None] * dt**2
+        
+        # Save old forces
+        old_forces = forces.copy()
+        
+        # Calculate new forces
+        forces = self.calculate_forces(positions)
+        
+        # Update velocities
+        velocities += 0.5 * (old_forces + forces) * inv_masses[:, None] * dt
+        
+        return positions, velocities
+
+    @numba.jit(nopython=True)
+    def _langevin_step(self, positions: np.ndarray, velocities: np.ndarray,
+                      forces: np.ndarray, masses: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """Langevin integrator with temperature coupling"""
+        dt = self.params.timestep
+        gamma = 1.0  # collision frequency
+        kT = self.params.temperature * 0.00831446  # kB in kJ/mol/K
+        
+        c1 = np.exp(-gamma * dt)
+        c2 = np.sqrt(1.0 - c1*c1)
+        
+        # Random forces
+        R = np.random.normal(0.0, 1.0, velocities.shape) * np.sqrt(kT / masses[:, None])
+        
+        # Update velocities and positions using BBK integrator
+        velocities = (c1 * velocities + 
+                     c2 * R +
+                     dt * forces * (1.0/masses[:, None]))
+        
+        positions += velocities * dt
+        
+        return positions, velocities
+
+    @numba.jit(nopython=True)
+    def calculate_forces(self, positions: np.ndarray) -> np.ndarray:
+        """Calculate all forces including many-body terms"""
+        forces = np.zeros_like(positions)
+        
+        # Bonded forces
+        self._add_bond_forces(positions, forces)
+        self._add_angle_forces(positions, forces)
+        self._add_dihedral_forces(positions, forces)
+        self._add_improper_forces(positions, forces)
+        
+        # Non-bonded forces
+        self._add_vdw_forces(positions, forces)
+        self._add_electrostatic_forces(positions, forces)
+        self._add_polarization_forces(positions, forces)
+        
+        return forces
+
+    @numba.jit(nopython=True)
+    def _add_bond_forces(self, positions: np.ndarray, forces: np.ndarray):
+        """Add forces from all bond types"""
+        for bond in self.topology.bonds:
+            i, j = bond.atoms
+            r = positions[j] - positions[i]
+            r_length = np.sqrt(np.sum(r*r))
+            
+            if bond.type == 'harmonic':
+                energy, force = self._harmonic_bond(r_length, bond.params)
+            elif bond.type == 'morse':
+                energy, force = self._morse_bond(r_length, bond.params)
+                
+            # Add forces to atoms
+            forces[i] += force * r/r_length
+            forces[j] -= force * r/r_length
+
+    @numba.jit(nopython=True)
+    def _harmonic_bond(self, r: float, params: Dict) -> Tuple[float, float]:
+        """Harmonic bond potential"""
+        dr = r - params['r0']
+        energy = 0.5 * params['k'] * dr * dr
+        force = -params['k'] * dr
+        return energy, force
+
+    @numba.jit(nopython=True)
+    def _morse_bond(self, r: float, params: Dict) -> Tuple[float, float]:
+        """Morse bond potential"""
+        dr = r - params['r0']
+        exp_term = np.exp(-params['alpha'] * dr)
+        energy = params['D'] * (1.0 - exp_term)**2
+        force = 2.0 * params['D'] * params['alpha'] * exp_term * (1.0 - exp_term)
+        return energy, force
+
+    @numba.jit(nopython=True)
+    def _add_electrostatic_forces(self, positions: np.ndarray, forces: np.ndarray):
+        """Add electrostatic forces using PME"""
+        # Direct space sum
+        self._add_direct_space_forces(positions, forces)
+        
+        # Reciprocal space sum
+        self._add_reciprocal_space_forces(positions, forces)
+        
+        # Self energy correction
+        self._add_self_energy_correction(forces)
+
+    @numba.jit(nopython=True)
+    def _add_direct_space_forces(self, positions: np.ndarray, forces: np.ndarray):
+        """Real space part of PME"""
+        for i in range(len(positions)):
+            for j in range(i+1, len(positions)):
+                r = positions[j] - positions[i]
+                r_length = np.sqrt(np.sum(r*r))
+                
+                if r_length < self.params.cutoff:
+                    qi_qj = self.charges[i] * self.charges[j]
+                    force = self._direct_force(r_length, qi_qj)
+                    
+                    # Add forces
+                    forces[i] += force * r/r_length
+                    forces[j] -= force * r/r_length
+
+    def run_dynamics(self, system: Dict, steps: int, 
+                    integrator: str = 'velocity_verlet') -> Dict:
+        """Run molecular dynamics with advanced analysis"""
+        trajectory = []
+        properties = {
+            'potential_energy': [],
+            'kinetic_energy': [],
+            'temperature': [],
+            'pressure': [],
+            'volume': [],
+            'rdf': [],
+            'msd': [],
+            'hbonds': []
+        }
+
+        # Initialize velocities and forces
+        velocities = self._initialize_velocities(system)
+        forces = self.calculate_forces(system['positions'])
+
+        # Main dynamics loop
+        for step in range(steps):
+            # Integration step
+            positions, velocities = self.integrators[integrator](
+                system['positions'], velocities, forces, system['masses']
+            )
+            system['positions'] = positions
+            
+            # Calculate new forces
+            forces = self.calculate_forces(positions)
+            
+            # Property calculation and analysis
+            if step % 100 == 0:  # Analysis frequency
+                self._calculate_properties(system, velocities, properties)
+                trajectory.append(positions.copy())
+
+            # Periodic boundary conditions
+            self._apply_pbc(system)
+
+            # Extended system properties (pressure coupling etc)
+            self._update_extended_system(system, step)
+
+        return {
+            'trajectory': trajectory,
+            'properties': properties,
+            'final_state': system
+        }
+
