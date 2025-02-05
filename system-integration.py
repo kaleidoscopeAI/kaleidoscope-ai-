@@ -1,192 +1,204 @@
-import numpy as np
-from datetime import datetime
-import networkx as nx
-import matplotlib.pyplot as plt
+# system_integration.py
 
-class KaleidoscopeSystem:
-    """
-    Integrates all components of the Kaleidoscope AI system.
-    """
-    def __init__(self):
-        self.data_processor = DataProcessor()
-        self.kaleidoscope_engine = KaleidoscopeEngine(num_banks=5, bank_capacity=3)
-        self.cluster_manager = ClusterManager()
-        
-    def process_input_data(self, raw_data: List[Dict[str, Any]]) -> None:
-        """
-        Processes a batch of input data through the entire system.
-        """
-        print("Starting Kaleidoscope AI Processing Pipeline...")
-        print("-" * 50)
-        
-        # Step 1: Data Standardization
-        standardized_data = []
-        for data_item in raw_data:
-            std_data = self.data_processor.process(
-                data_item['content'],
-                data_item['type']
-            )
-            standardized_data.append(std_data)
-            print(f"Standardized {data_item['type']} data: {std_data.metadata}")
-        
-        # Step 2: Initial Knowledge Processing
-        print("\nProcessing through Kaleidoscope Engine...")
-        for data in standardized_data:
-            self.kaleidoscope_engine.add_insight(data)
-        
-        # Step 3: Generate Initial Insights
-        insights = self.kaleidoscope_engine.generate_insights()
-        print(f"Generated {len(insights)} initial insights")
-        
-        # Step 4: Create Domain Nodes
-        print("\nCreating Domain-Specific Nodes...")
-        for insight in insights:
-            domain_node = self.cluster_manager.create_domain_node(insight)
-            print(f"Created node in domain: {domain_node.domain}")
-        
-        # Step 5: Establish Node Connections
-        self._establish_node_connections()
-        
-        # Step 6: Update Clusters
-        print("\nForming Knowledge Clusters...")
-        self.cluster_manager.update_clusters()
-        
-        # Step 7: Generate System Status
-        self._print_system_status()
-        
-        # Step 8: Visualize Results
-        self._visualize_system_state()
+import asyncio
+import boto3
+import pandas as pd
+from typing import Dict, Any, Optional
+from dataclasses import dataclass
+from enhanced_scientific_bot import EnhancedScientificBot
+from quantum_system_enhanced import QuantumSystemManager
+import websockets
+import json
+import logging
+from rich.console import Console
+from concurrent.futures import ThreadPoolExecutor
 
-    def _establish_node_connections(self):
-        """
-        Establishes connections between nodes based on similarity.
-        """
-        nodes = list(self.cluster_manager.domain_nodes.keys())
-        for i in range(len(nodes)):
-            for j in range(i + 1, len(nodes)):
-                similarity = self.cluster_manager.calculate_node_similarity(
-                    nodes[i],
-                    nodes[j]
-                )
-                if similarity > self.cluster_manager.similarity_threshold:
-                    self.cluster_manager.add_connection(
-                        nodes[i],
-                        nodes[j],
-                        weight=similarity
-                    )
+@dataclass
+class SystemQuery:
+    """Structure for system queries."""
+    query_text: str
+    data_ref: Optional[str] = None  # S3 reference if applicable
+    query_type: str = "general"
+    priority: int = 1
 
-    def _print_system_status(self):
-        """
-        Prints current system status and cluster information.
-        """
-        print("\nSystem Status:")
-        print("-" * 50)
-        
-        # Kaleidoscope Engine Status
-        engine_status = self.kaleidoscope_engine.get_status()
-        print("\nKaleidoscope Engine:")
-        print(f"Active Memory Banks: {engine_status['total_insights']}")
-        
-        # Cluster Status
-        cluster_summary = self.cluster_manager.get_cluster_summary()
-        print(f"\nCluster Summary:")
-        print(f"Total Nodes: {cluster_summary['total_nodes']}")
-        print(f"Total Clusters: {cluster_summary['total_clusters']}")
-        
-        for cluster_id, info in cluster_summary['clusters'].items():
-            print(f"\nCluster: {cluster_id}")
-            print(f"Domain: {info['domain']}")
-            print(f"Size: {info['size']} nodes")
-            print(f"Average Confidence: {info['average_confidence']:.2f}")
-
-    def _visualize_system_state(self):
-        """
-        Creates a visualization of the current system state.
-        """
-        plt.figure(figsize=(12, 8))
-        
-        # Get the visualization graph
-        viz_graph = self.cluster_manager.visualize_clusters()
-        
-        # Create layout
-        pos = nx.spring_layout(viz_graph)
-        
-        # Draw nodes
-        domains = set(nx.get_node_attributes(viz_graph, 'domain').values())
-        colors = plt.cm.rainbow(np.linspace(0, 1, len(domains)))
-        domain_color_map = dict(zip(domains, colors))
-        
-        for domain in domains:
-            domain_nodes = [
-                node for node, attr in viz_graph.nodes(data=True)
-                if attr.get('domain') == domain
-            ]
-            nx.draw_networkx_nodes(
-                viz_graph,
-                pos,
-                nodelist=domain_nodes,
-                node_color=[domain_color_map[domain]],
-                node_size=500,
-                alpha=0.6,
-                label=domain
-            )
-        
-        # Draw edges
-        nx.draw_networkx_edges(
-            viz_graph,
-            pos,
-            alpha=0.5,
-            edge_color='gray'
-        )
-        
-        # Add labels
-        labels = {
-            node: f"{attr['domain'][:3]}{i}"
-            for i, (node, attr) in enumerate(viz_graph.nodes(data=True))
-        }
-        nx.draw_networkx_labels(viz_graph, pos, labels, font_size=8)
-        
-        plt.title("Kaleidoscope AI Knowledge Clusters")
-        plt.legend()
-        plt.axis('off')
-        plt.tight_layout()
-        
-        return plt.gcf()
-
-def demonstrate_system():
-    """
-    Demonstrates the complete Kaleidoscope AI system with sample data.
-    """
-    # Sample input data
-    sample_data = [
-        {
-            'type': 'text',
-            'content': 'The cell membrane consists of a phospholipid bilayer with embedded proteins.'
-        },
-        {
-            'type': 'text',
-            'content': 'Membrane proteins facilitate transport of molecules across the cell membrane.'
-        },
-        {
-            'type': 'numerical',
-            'content': [23.5, 45.2, 67.8]  # Example membrane thickness measurements
-        },
-        {
-            'type': 'text',
-            'content': 'Chemical compounds can affect membrane permeability through various mechanisms.'
-        },
-        {
-            'type': 'structured',
-            'content': {
-                'membrane_components': ['phospholipids', 'proteins', 'cholesterol'],
-                'properties': {'fluidity': 0.75, 'permeability': 0.45}
-            }
-        }
-    ]
+class IntegratedSystemManager:
+    """Manages integration between quantum system and scientific chatbot."""
     
-    # Initialize and run system
-    system = KaleidoscopeSystem()
-    system.process_input_data(sample_data)
+    def __init__(self, config_path: str = "config/system_config.yaml"):
+        self.console = Console()
+        self.quantum_system = QuantumSystemManager()
+        self.scientific_bot = EnhancedScientificBot()
+        self.s3 = boto3.client('s3')
+        self.setup_logging()
+        
+        # Initialize communication channels
+        self.message_queue = asyncio.Queue()
+        self.response_queue = asyncio.Queue()
+        
+    def setup_logging(self):
+        """Configure system-wide logging."""
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler('system_integration.log'),
+                logging.StreamHandler()
+            ]
+        )
+        self.logger = logging.getLogger(__name__)
 
+    async def start_system(self):
+        """Initialize and start all system components."""
+        try:
+            # Start quantum system
+            await self.quantum_system.initialize_system("config/quantum_config.yaml")
+            
+            # Start WebSocket server for real-time communication
+            await self.start_websocket_server()
+            
+            # Start message processing
+            await self.process_messages()
+            
+            self.logger.info("System integration started successfully")
+            
+        except Exception as e:
+            self.logger.error(f"System startup failed: {str(e)}")
+            raise
+
+    async def start_websocket_server(self):
+        """Start WebSocket server for real-time communication."""
+        async def handler(websocket, path):
+            try:
+                async for message in websocket:
+                    # Parse incoming message
+                    data = json.loads(message)
+                    query = SystemQuery(**data)
+                    
+                    # Process query
+                    response = await self.handle_query(query)
+                    
+                    # Send response
+                    await websocket.send(json.dumps(response))
+                    
+            except Exception as e:
+                self.logger.error(f"WebSocket error: {str(e)}")
+
+        self.server = await websockets.serve(handler, "localhost", 8765)
+
+    async def handle_query(self, query: SystemQuery) -> Dict[str, Any]:
+        """Handle incoming queries and route to appropriate component."""
+        try:
+            # Load data if reference provided
+            data = None
+            if query.data_ref:
+                data = await self.load_data(query.data_ref)
+            
+            # Process based on query type
+            if query.query_type == "quantum":
+                response = await self.quantum_system.process_query(query.query_text)
+                
+            elif query.query_type == "analysis":
+                response = await self.scientific_bot.analyze_data(query.query_text, data)
+                
+            else:
+                # Determine best processor based on query content
+                processor = self._determine_processor(query.query_text)
+                response = await processor.process_query(query.query_text, data)
+            
+            return {
+                "status": "success",
+                "response": response,
+                "query_id": id(query)
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Query handling error: {str(e)}")
+            return {
+                "status": "error",
+                "error": str(e),
+                "query_id": id(query)
+            }
+
+    async def load_data(self, data_ref: str) -> pd.DataFrame:
+        """Load data from S3 reference."""
+        try:
+            # Extract bucket and key from reference
+            bucket, key = data_ref.split('/', 1)
+            
+            # Download file
+            response = await asyncio.to_thread(
+                self.s3.get_object,
+                Bucket=bucket,
+                Key=key
+            )
+            
+            # Parse based on file type
+            if key.endswith('.csv'):
+                return pd.read_csv(response['Body'])
+            elif key.endswith('.json'):
+                return pd.read_json(response['Body'])
+            else:
+                raise ValueError(f"Unsupported file type: {key}")
+                
+        except Exception as e:
+            self.logger.error(f"Data loading error: {str(e)}")
+            raise
+
+    def _determine_processor(self, query: str) -> Any:
+        """Determine best processor based on query content."""
+        # Simple keyword-based routing
+        quantum_keywords = {'quantum', 'node', 'process', 'optimize'}
+        analysis_keywords = {'analyze', 'data', 'statistical', 'trend'}
+        
+        query_words = set(query.lower().split())
+        
+        if len(query_words & quantum_keywords) > len(query_words & analysis_keywords):
+            return self.quantum_system
+        else:
+            return self.scientific_bot
+
+    async def process_messages(self):
+        """Process messages from the queue."""
+        while True:
+            try:
+                message = await self.message_queue.get()
+                
+                # Process message
+                response = await self.handle_query(SystemQuery(**message))
+                
+                # Put response in queue
+                await self.response_queue.put(response)
+                
+            except Exception as e:
+                self.logger.error(f"Message processing error: {str(e)}")
+
+# Example usage:
 if __name__ == "__main__":
-    demonstrate_system()
+    import asyncio
+    
+    async def main():
+        # Initialize integrated system
+        system = IntegratedSystemManager()
+        
+        # Start system
+        await system.start_system()
+        
+        # Example queries
+        queries = [
+            {
+                "query_text": "Analyze the correlation in quantum node performance",
+                "query_type": "analysis",
+                "data_ref": "quantum-bucket/node_metrics.csv"
+            },
+            {
+                "query_text": "Optimize quantum processing parameters",
+                "query_type": "quantum"
+            }
+        ]
+        
+        # Process queries
+        for query in queries:
+            response = await system.handle_query(SystemQuery(**query))
+            print(f"Query Response: {response}")
+        
+    asyncio.run(main())

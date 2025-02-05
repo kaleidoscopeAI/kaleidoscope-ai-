@@ -1,0 +1,140 @@
+import torch
+import torch.nn as nn
+import numpy as np
+from typing import Dict, List, Tuple, Optional
+import networkx as nx
+from scipy.stats import entropy
+from collections import defaultdict
+import threading
+import queue
+import time
+import hashlib
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import serialization
+import os
+
+class SecurityLayer:
+    def __init__(self, key_size: int = 2048):
+        self.private_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=key_size
+        )
+        self.public_key = self.private_key.public_key()
+        self.fernet_key = Fernet.generate_key()
+        self.cipher_suite = Fernet(self.fernet_key)
+        self.anomaly_detector = AnomalyDetector()
+        self.pattern_monitor = PatternMonitor()
+        self.threat_detector = ThreatDetector()
+        self.lock = threading.Lock()
+        
+    def encrypt_data(self, data: bytes) -> bytes:
+        return self.cipher_suite.encrypt(data)
+    
+    def decrypt_data(self, encrypted_data: bytes) -> bytes:
+        return self.cipher_suite.decrypt(encrypted_data)
+    
+    def sign_data(self, data: bytes) -> bytes:
+        signature = self.private_key.sign(
+            data,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
+        return signature
+    
+    def verify_signature(self, data: bytes, signature: bytes) -> bool:
+        try:
+            self.public_key.verify(
+                signature,
+                data,
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+            )
+            return True
+        except:
+            return False
+
+class AnomalyDetector:
+    def __init__(self, window_size: int = 1000):
+        self.window_size = window_size
+        self.market_history = []
+        self.molecule_history = []
+        self.sensor_history = []
+        self.threshold = 3.0
+        
+    def detect_anomalies(
+        self,
+        market_data: torch.Tensor,
+        molecule_data: torch.Tensor,
+        sensor_data: torch.Tensor
+    ) -> Dict[str, List[int]]:
+        anomalies = {
+            'market': self._detect_domain_anomalies(market_data, self.market_history),
+            'molecule': self._detect_domain_anomalies(molecule_data, self.molecule_history),
+            'sensor': self._detect_domain_anomalies(sensor_data, self.sensor_history)
+        }
+        
+        self._update_histories(market_data, molecule_data, sensor_data)
+        return anomalies
+    
+    def _detect_domain_anomalies(
+        self,
+        data: torch.Tensor,
+        history: List[torch.Tensor]
+    ) -> List[int]:
+        if len(history) < 2:
+            return []
+            
+        mean = torch.stack(history[-self.window_size:]).mean(0)
+        std = torch.stack(history[-self.window_size:]).std(0)
+        
+        z_scores = (data - mean) / (std + 1e-6)
+        anomaly_mask = torch.abs(z_scores) > self.threshold
+        
+        return anomaly_mask.nonzero().flatten().tolist()
+    
+    def _update_histories(
+        self,
+        market_data: torch.Tensor,
+        molecule_data: torch.Tensor,
+        sensor_data: torch.Tensor
+    ):
+        self.market_history.append(market_data.detach())
+        self.molecule_history.append(molecule_data.detach())
+        self.sensor_history.append(sensor_data.detach())
+        
+        if len(self.market_history) > self.window_size:
+            self.market_history.pop(0)
+            self.molecule_history.pop(0)
+            self.sensor_history.pop(0)
+
+class PatternMonitor:
+    def __init__(self, pattern_length: int = 10):
+        self.pattern_length = pattern_length
+        self.pattern_graph = nx.DiGraph()
+        self.pattern_counts = defaultdict(int)
+        self.lock = threading.Lock()
+        
+    def update_patterns(
+        self,
+        market_pattern: List[float],
+        molecule_pattern: List[float],
+        sensor_pattern: List[float]
+    ) -> float:
+        pattern_hash = self._hash_pattern(market_pattern, molecule_pattern, sensor_pattern)
+        
+        with self.lock:
+            self.pattern_counts[pattern_hash] += 1
+            
+            if len(self.pattern_counts) > 1:
+                self._update_pattern_graph(pattern_hash)
+                
+            return self._calculate_pattern_

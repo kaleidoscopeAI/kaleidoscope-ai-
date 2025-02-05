@@ -1,0 +1,49 @@
+from membrane_class import Membrane
+from specialized_nodes import QuantumNode
+from quantum_adaptive_network import AdaptiveNetworkManager
+from kaleidoscope_ai_core_with_ui2 import ThoughtNexus, Environment
+import numpy as np
+
+# Step 1: Initialize Components
+membrane = Membrane()
+network_manager = AdaptiveNetworkManager(num_nodes=5)
+thought_nexus = ThoughtNexus()
+environment = Environment()
+
+# Add quantum nodes to the environment
+for i in range(5):
+    node = QuantumNode(node_id=f"Node_{i}", state_dim=4)
+    environment.add_node(node)
+
+# Step 2: Ingest Data
+data_stream = [
+    {"priority": 3, "important_field": "molecule_data_1", "other_field": np.random.rand()},
+    {"priority": 5, "important_field": "molecule_data_2", "other_field": np.random.rand()},
+    {"priority": 1, "important_field": "molecule_data_3", "other_field": np.random.rand()},
+]
+
+membrane.ingest_data(data_stream)
+filtered_data = membrane.get_filtered_data()
+
+# Step 3: Process Data Through Nodes
+for data in filtered_data:
+    # Distribute to the best node based on energy and capability
+    best_node = max(environment.nodes, key=lambda n: n.energy)
+    result = best_node.process_data(data)
+    print(f"Node {best_node.node_id} processed data: {result}")
+
+# Step 4: Analyze Insights
+insights = []
+for node in environment.nodes:
+    insights.append(node.generate_insight())
+
+# Step 5: Visualize Results
+print(f"Generated Insights: {insights}")
+environment.monitor_performance()
+
+# Step 6: Feedback and Adaptation
+thought_nexus.feedback_loop(environment)
+
+# Step 7: Network Optimization
+network_coherence, centrality = network_manager.optimize_network()
+print(f"Network Coherence: {network_coherence}, Node Centrality: {centrality}")

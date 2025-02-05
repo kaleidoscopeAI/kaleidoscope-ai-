@@ -1,0 +1,82 @@
+import boto3
+import json
+import random
+import logging
+import time
+
+# AWS Configuration
+TASK_BUCKET = "task-queue-bucket"
+DYNAMODB_TABLE = "NodeTaskStatus"
+SNS_TOPIC = "arn:aws:sns:us-east-1:123456789012:TaskFailureNotifications"
+REGION = "us-east-1"
+
+# Initialize AWS Clients
+s3 = boto3.client("s3", region_name=REGION)
+dynamodb = boto3.resource("dynamodb", region_name=REGION)
+sns = boto3.client("sns", region_name=REGION)
+
+logging.basicConfig(level=logging.INFO)
+
+class TaskManager:
+    def __init__(self):
+        """Task Manager for handling task prioritization and allocation to nodes."""
+        self.table = dynamodb.Table(DYNAMODB_TABLE)
+
+    def fetch_pending_tasks(self):
+        """Fetches pending tasks from the S3 bucket."""
+        try:
+            response = s3.list_objects_v2(Bucket=TASK_BUCKET)
+            if "Contents" in response:
+                return [obj["Key"] for obj in response["Contents"]]
+            return []
+        except Exception as e:
+            logging.error(f"[ERROR] Failed to fetch tasks: {e}")
+            return []
+
+    def assign_task_to_node(self, task_key, node_id):
+        """Assigns a task to an available node and logs it in DynamoDB."""
+        try:
+            task_data = s3.get_object(Bucket=TASK_BUCKET, Key=task_key)["Body"].read().decode("utf-8")
+            s3.delete_object(Bucket=TASK_BUCKET, Key=task_key)  # Remove task after assignment
+
+            self.table.put_item(Item={
+                "TaskID": task_key,
+                "NodeID": node_id,
+                "Status": "Assigned",
+                "Timestamp": int(time.time()),
+            })
+
+            logging.info(f"[SUCCESS] Assigned task {task_key} to Node {node_id}")
+            return task_data
+        except Exception as e:
+            logging.error(f"[ERROR] Failed to assign {task_key}: {e}")
+            return None
+
+    def notify_failure(self, task_key):
+        """Sends a notification to SNS if task assignment fails."""
+        message = f"Task {task_key} could not be assigned due to system errors."
+        sns.publish(TopicArn=SNS_TOPIC, Message=message, Subject="Task Assignment Failure")
+        logging.warning(f"[ALERT] {message}")
+
+    def process_tasks(self, available_nodes):
+        """Processes and assigns tasks to available nodes."""
+        tasks = self.fetch_pending_tasks()
+        if not tasks:
+            logging.info("[INFO] No pending tasks.")
+            return
+
+        for task_key in tasks:
+            if not available_nodes:
+                self.notify_failure(task_key)
+                break
+
+            node_id = available_nodes.pop(0)  # Assign to the first available node
+            self.assign_task_to_node(task_key, node_id)
+
+if __name__ == "__main__":
+    manager = TaskManager()
+    while True:
+        available_nodes = ["Node-1", "Node-2", "Node-3"]  # Fetch from DB in actual implementation
+        manager.process_tasks(available_nodes)
+        time.sleep(10)  # Runs every 10 seconds
+

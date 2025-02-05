@@ -1,0 +1,15 @@
+# Transformers (version-pinned)
+transformers==4.31.0
+
+# CPU version of PyTorch
+torch==2.0.1
+
+# Medical NLP
+scispacy==0.5.1
+medspacy==0.2.0
+
+# SciSpacy large model
+https://github.com/allenai/scispacy/releases/download/v0.5.1/en_core_sci_lg-0.5.1.tar.gz
+
+# Placeholder for Kaleidoscope AI
+kaleidoscopeai==1.0.0

@@ -1,0 +1,160 @@
+import torch.optim as optim
+from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
+from typing import Dict, List, Tuple, Optional, Any
+import numpy as np
+from collections import deque
+import threading
+from concurrent.futures import ThreadPoolExecutor
+import time
+
+class ModelTrainer:
+    def __init__(
+        self,
+        model: nn.Module,
+        device: torch.device,
+        lr: float = 1e-4,
+        batch_size: int = 32,
+        num_epochs: int = 100,
+        checkpoint_dir: str = './checkpoints'
+    ):
+        self.model = model.to(device)
+        self.device = device
+        self.batch_size = batch_size
+        self.num_epochs = num_epochs
+        self.checkpoint_dir = checkpoint_dir
+        
+        self.optimizer = optim.AdamW(
+            self.model.parameters(),
+            lr=lr,
+            weight_decay=0.01
+        )
+        
+        self.scheduler = CosineAnnealingWarmRestarts(
+            self.optimizer,
+            T_0=10,
+            T_mult=2
+        )
+        
+        self.market_criterion = nn.MSELoss()
+        self.molecule_criterion = nn.MSELoss()
+        self.sensor_criterion = nn.MSELoss()
+        
+        self.train_losses = []
+        self.val_losses = []
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        
+    def train_epoch(
+        self,
+        train_loader: DataLoader,
+        security_system: IntegratedSecuritySystem
+    ) -> Dict[str, float]:
+        self.model.train()
+        epoch_losses = defaultdict(list)
+        
+        for batch_idx, batch in enumerate(train_loader):
+            market_data = batch.market_data.to(self.device)
+            molecule_data = batch.molecule_data.to(self.device)
+            sensor_data = batch.sensor_data.to(self.device)
+            
+            # Security check
+            security_status = security_system.process_data(
+                market_data, molecule_data, sensor_data
+            )
+            
+            if security_status['threat_level'] < 2:  # Only train if threat level is low
+                self.optimizer.zero_grad()
+                
+                # Forward pass
+                market_pred, molecule_pred, sensor_pred, uncertainties = self.model(
+                    market_data, molecule_data, sensor_data
+                )
+                
+                # Calculate losses
+                market_loss = self.market_criterion(market_pred, market_data)
+                molecule_loss = self.molecule_criterion(molecule_pred, molecule_data)
+                sensor_loss = self.sensor_criterion(sensor_pred, sensor_data)
+                
+                # Uncertainty weighting
+                uncertainty_weights = F.softmax(-uncertainties, dim=-1)
+                total_loss = (
+                    uncertainty_weights[0] * market_loss +
+                    uncertainty_weights[1] * molecule_loss +
+                    uncertainty_weights[2] * sensor_loss
+                )
+                
+                # Backward pass
+                total_loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                self.optimizer.step()
+                
+                # Record losses
+                epoch_losses['market'].append(market_loss.item())
+                epoch_losses['molecule'].append(molecule_loss.item())
+                epoch_losses['sensor'].append(sensor_loss.item())
+                epoch_losses['total'].append(total_loss.item())
+                
+            self.scheduler.step(batch_idx)
+            
+        return {k: np.mean(v) for k, v in epoch_losses.items()}
+    
+    def validate(
+        self,
+        val_loader: DataLoader,
+        security_system: IntegratedSecuritySystem
+    ) -> Dict[str, float]:
+        self.model.eval()
+        val_losses = defaultdict(list)
+        
+        with torch.no_grad():
+            for batch in val_loader:
+                market_data = batch.market_data.to(self.device)
+                molecule_data = batch.molecule_data.to(self.device)
+                sensor_data = batch.sensor_data.to(self.device)
+                
+                # Security check
+                security_status = security_system.process_data(
+                    market_data, molecule_data, sensor_data
+                )
+                
+                if security_status['threat_level'] < 2:
+                    market_pred, molecule_pred, sensor_pred, uncertainties = self.model(
+                        market_data, molecule_data, sensor_data
+                    )
+                    
+                    market_loss = self.market_criterion(market_pred, market_data)
+                    molecule_loss = self.molecule_criterion(molecule_pred, molecule_data)
+                    sensor_loss = self.sensor_criterion(sensor_pred, sensor_data)
+                    
+                    uncertainty_weights = F.softmax(-uncertainties, dim=-1)
+                    total_loss = (
+                        uncertainty_weights[0] * market_loss +
+                        uncertainty_weights[1] * molecule_loss +
+                        uncertainty_weights[2] * sensor_loss
+                    )
+                    
+                    val_losses['market'].append(market_loss.item())
+                    val_losses['molecule'].append(molecule_loss.item())
+                    val_losses['sensor'].append(sensor_loss.item())
+                    val_losses['total'].append(total_loss.item())
+                    
+        return {k: np.mean(v) for k, v in val_losses.items()}
+    
+    def save_checkpoint(self, epoch: int, losses: Dict[str, float]):
+        checkpoint = {
+            'epoch': epoch,
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'scheduler_state_dict': self.scheduler.state_dict(),
+            'losses': losses
+        }
+        
+        path = os.path.join(
+            self.checkpoint_dir,
+            f'checkpoint_epoch_{epoch}.pt'
+        )
+        torch.save(checkpoint, path)
+        
+    def load_checkpoint(self, path: str):
+        checkpoint = torch.load(path)
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer
