@@ -1,0 +1,995 @@
+# core-classes.py
+
+# core/base.py
+from abc import ABC, abstractmethod
+from typing import Dict, List, Any, Optional
+import numpy as np
+import networkx as nx
+import logging
+
+class BaseNode(ABC):
+    """Abstract base class for all node types in the system."""
+    
+    def __init__(self, node_id: str, capacity: int = 100):
+        self.node_id = node_id
+        self.capacity = capacity
+        self.energy = 100.0
+        self.memory = []
+        self.connections = []
+        self.graph = nx.DiGraph()
+        self.logger = logging.getLogger(f"Node-{node_id}")
+        self.characteristics = {}
+    
+    @abstractmethod
+    def process_data(self, data: Any) -> Dict:
+        """Process incoming data and generate insights."""
+        pass
+
+    @abstractmethod
+    def update_state(self):
+        """Update internal state based on current conditions."""
+        pass
+
+    def connect_to(self, other_node: 'BaseNode'):
+        """Establish connection with another node."""
+        if other_node not in self.connections:
+            self.connections.append(other_node)
+            self.graph.add_edge(self.node_id, other_node.node_id)
+            self.logger.info(f"Connected to node {other_node.node_id}")
+
+    def consume_energy(self, amount: float):
+        """Consume energy for operations."""
+        self.energy = max(0.0, self.energy - amount)
+        if self.energy < 20.0:
+            self.logger.warning(f"Low energy level: {self.energy}")
+
+    def receive_energy(self, amount: float):
+        """Receive energy from the system."""
+        self.energy = min(100.0, self.energy + amount)
+
+    def store_in_memory(self, data: Any):
+        """Store data in node memory."""
+        if len(self.memory) >= self.capacity:
+            self.memory.pop(0)  # Remove oldest memory
+        self.memory.append(data)
+
+    def get_state(self) -> Dict:
+        """Return current state of the node."""
+        return {
+            "node_id": self.node_id,
+            "energy": self.energy,
+            "memory_usage": len(self.memory) / self.capacity,
+            "connections": len(self.connections),
+            "characteristics": self.characteristics
+        }
+
+class BaseNetwork(ABC):
+    """Abstract base class for all networks in the system."""
+    
+    def __init__(self):
+        self.nodes = []
+        self.network = nx.Graph()
+        self.energy_pool = 1000.0
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+    @abstractmethod
+    def add_node(self, node: BaseNode):
+        """Add a node to the network."""
+        pass
+
+    @abstractmethod
+    def process_data(self, data: Any) -> Dict:
+        """Process data through the network."""
+        pass
+
+    def distribute_energy(self):
+        """Distribute energy among nodes."""
+        active_nodes = [node for node in self.nodes if node.energy < 100.0]
+        if not active_nodes:
+            return
+
+        total_deficit = sum(100.0 - node.energy for node in active_nodes)
+        if total_deficit <= 0:
+            return
+
+        for node in active_nodes:
+            deficit = 100.0 - node.energy
+            share = (deficit / total_deficit) * min(self.energy_pool, total_deficit)
+            node.receive_energy(share)
+            self.energy_pool -= share
+
+    def connect_nodes(self, node1_id: str, node2_id: str):
+        """Connect two nodes in the network."""
+        node1 = next((n for n in self.nodes if n.node_id == node1_id), None)
+        node2 = next((n for n in self.nodes if n.node_id == node2_id), None)
+        
+        if node1 and node2:
+            node1.connect_to(node2)
+            node2.connect_to(node1)
+            self.network.add_edge(node1_id, node2_id)
+            self.logger.info(f"Connected nodes {node1_id} and {node2_id}")
+        else:
+            self.logger.error(f"Failed to connect nodes {node1_id} and {node2_id}")
+
+    def get_network_state(self) -> Dict:
+        """Return current state of the network."""
+        return {
+            "node_count": len(self.nodes),
+            "edge_count": self.network.number_of_edges(),
+            "energy_pool": self.energy_pool,
+            "nodes": [node.get_state() for node in self.nodes]
+        }
+
+class SystemMonitor:
+    """Monitors and logs system performance and state."""
+    
+    def __init__(self):
+        self.logger = logging.getLogger("SystemMonitor")
+        self.metrics = {
+            "energy_usage": [],
+            "memory_usage": [],
+            "processing_time": [],
+            "node_count": []
+        }
+        self.alerts = []
+
+    def record_metric(self, metric_name: str, value: float):
+        """Record a metric value."""
+        if metric_name in self.metrics:
+            self.metrics[metric_name].append(value)
+            if len(self.metrics[metric_name]) > 1000:
+                self.metrics[metric_name] = self.metrics[metric_name][-1000:]
+
+    def check_thresholds(self, network: BaseNetwork):
+        """Check system thresholds and generate alerts."""
+        if network.energy_pool < 200.0:
+            self.alerts.append({
+                "level": "WARNING",
+                "message": "Low energy pool",
+                "value": network.energy_pool
+            })
+            self.logger.warning(f"Low energy pool: {network.energy_pool}")
+
+        for node in network.nodes:
+            if node.energy < 10.0:
+                self.alerts.append({
+                    "level": "CRITICAL",
+                    "message": f"Critical energy level in node {node.node_id}",
+                    "value": node.energy
+                })
+                self.logger.critical(f"Critical energy level in node {node.node_id}: {node.energy}")
+
+    def get_system_health(self) -> Dict:
+        """Return overall system health status."""
+        return {
+            "metrics": {k: np.mean(v) if v else 0 for k, v in self.metrics.items()},
+            "alerts": self.alerts[-10:],  # Last 10 alerts
+            "status": "HEALTHY" if len(self.alerts) < 3 else "WARNING"
+        }
+
+# kaleidoscope_ai_core_with_ui2.py
+
+# File: kaleidoscope_ai_core_with_ui.py
+
+import threading
+import time
+import matplotlib.pyplot as plt
+import logging
+import csv
+
+# Configure logging
+logging.basicConfig(
+    filename="system.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+# Node Class
+class Node:
+    def __init__(self, node_id, initial_energy=100, initial_knowledge=0):
+        self.node_id = node_id
+        self.energy = initial_energy
+        self.knowledge = initial_knowledge
+
+    def execute_task(self, task_complexity, task_context=None):
+        """Executes a task, consuming energy and gaining knowledge."""
+        energy_cost = task_complexity * 2
+        knowledge_gain = task_complexity * 1.5
+
+        if self.energy >= energy_cost:
+            self.energy -= energy_cost
+            self.knowledge += knowledge_gain
+            return {
+                "status": "task_complete",
+                "knowledge_gain": knowledge_gain,
+                "remaining_energy": self.energy
+            }
+        else:
+            return {
+                "status": "task_failed",
+                "reason": "Insufficient energy",
+                "remaining_energy": self.energy
+            }
+
+    def adjust_learning_rate(self, success_rate):
+        """Adjusts energy usage or knowledge accumulation based on success rate."""
+        if success_rate > 0.8:
+            self.energy += 10  # Reward nodes with energy
+        elif success_rate < 0.5:
+            self.energy -= 5  # Penalize nodes with energy reduction
+
+# Thought Nexus Class
+class ThoughtNexus:
+    def __init__(self):
+        self.global_insights = []
+        self.task_queue = []
+
+    def collect_insights(self, node_insights):
+        """Aggregates insights from all nodes."""
+        self.global_insights.extend(node_insights)
+        print(f"Collected Insights: {self.global_insights}")
+
+    def prioritize_tasks(self, tasks, environment):
+        """Reorders tasks dynamically based on real-time node performance and generated insights."""
+        # Incorporate dynamic prioritization using node performance and global insights
+        for task in tasks:
+            importance_factor = task.get("context", {}).get("importance", 1)
+            task["adjusted_priority"] = task.get("priority", 1) * importance_factor
+
+            # Adjust priority based on energy and knowledge of best node
+            best_node = max(environment.nodes, key=lambda n: (n.energy, n.knowledge))
+            task["adjusted_priority"] += best_node.energy * 0.01 + best_node.knowledge * 0.02
+
+        # Sort tasks based on dynamically adjusted priorities
+        self.task_queue = sorted(tasks, key=lambda x: x["adjusted_priority"], reverse=True)
+        print(f"Dynamically Prioritized Task Queue: {self.task_queue}")
+
+    def distribute_tasks(self, environment):
+        """Distributes tasks to nodes based on priority and node performance."""
+        for task in self.task_queue:
+            best_node = max(environment.nodes, key=lambda n: (n.energy, n.knowledge))
+            try:
+                result = best_node.execute_task(
+                    task_complexity=task["complexity"],
+                    task_context=task.get("context", {})
+                )
+                print(f"Task {task['id']} assigned to Node {best_node.node_id} with result: {result}")
+                logging.info(f"Task {task['id']} assigned to Node {best_node.node_id} with result: {result}")
+            except Exception as e:
+                error_message = f"Error assigning Task {task['id']} to Node {best_node.node_id}: {e}"
+                print(error_message)
+                logging.error(error_message)
+
+    def feedback_loop(self, environment):
+        """Analyzes task outcomes and updates node performance."""
+        for node in environment.nodes:
+            success_rate = len([t for t in self.task_queue if t.get("status") == "task_complete"]) / len(self.task_queue) if self.task_queue else 0
+            node.adjust_learning_rate(success_rate)
+        print("Feedback loop executed; learning rates adjusted.")
+        logging.info("Feedback loop executed; learning rates adjusted.")
+
+
+# Enhancing the Environment Class
+class Environment:
+    def __init__(self):
+        self.nodes = []
+        self.dependencies = {}
+        self.data_bank = {}
+        self.performance_log = []
+        self.is_running = False  # New field to track the system's state
+        self.nexus = ThoughtNexus()  # Adding Thought Nexus instance
+
+    def add_node(self, node):
+        """Adds a node to the environment."""
+        self.nodes.append(node)
+
+    def monitor_performance(self):
+        """Monitors real-time performance of nodes and dependencies, logs data for long-term trend analysis."""
+        node_performance = [
+            {
+                "node_id": node.node_id,
+                "energy": node.energy,
+                "knowledge": node.knowledge
+            } for node in self.nodes
+        ]
+
+        print("Performance:", node_performance)
+        logging.info(f"Performance: {node_performance}")
+
+        # Log performance data to a CSV file for long-term analysis
+        with open("performance_data.csv", mode="a", newline="") as file:
+            writer = csv.writer(file)
+            if file.tell() == 0:
+                # Write header if the file is empty
+                writer.writerow(["Timestamp", "Node ID", "Energy", "Knowledge"])
+            timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+            for node in node_performance:
+                writer.writerow([timestamp, node["node_id"], node["energy"], node["knowledge"]])
+
+    def process_nexus_tasks(self):
+        """Allows the Thought Nexus to distribute tasks and collect feedback."""
+        try:
+            self.nexus.distribute_tasks(self)
+            self.nexus.feedback_loop(self)
+        except Exception as e:
+            error_message = f"Error during Nexus task processing: {e}"
+            print(error_message)
+            logging.error(error_message)
+
+    def visualize_state(self, state):
+        """Visualizes the system's current state in real-time."""
+        state_map = {
+            'play': 'System Running',
+            'pause': 'System Paused',
+            'stop': 'System Stopped'
+        }
+        plt.figure(figsize=(5, 5))
+        plt.text(0.5, 0.5, state_map.get(state, 'Unknown State'),
+                 horizontalalignment='center', verticalalignment='center',
+                 fontsize=20, color='blue')
+        plt.title('System State Visualization')
+        plt.axis('off')
+        plt.show()
+
+
+# Play, Pause, Stop, and Inject Functions
+def play_system(environment):
+    """Starts the system's operations."""
+    print("System started.")
+    logging.info("System started.")
+    environment.visualize_state('play')
+    environment.is_running = True
+
+    while environment.is_running:
+        environment.monitor_performance()
+        environment.process_nexus_tasks()
+        time.sleep(1)  # Simulates periodic system operations
+
+    print("System stopped.")
+    logging.info("System stopped.")
+
+
+def pause_system(environment):
+    """Pauses the system's operations."""
+    print("System paused.")
+    logging.info("System paused.")
+    environment.visualize_state('pause')
+    environment.is_running = False
+
+
+def stop_system(environment):
+    """Stops the system completely."""
+    environment.is_running = False
+    print("System terminated.")
+    logging.info("System terminated.")
+    environment.visualize_state('stop')
+
+
+def inject_task(environment, node_id, task):
+    """Injects a task directly into a specified node and logs the action."""
+    for node in environment.nodes:
+        if node.node_id == node_id:
+            try:
+                result = node.execute_task(
+                    task_complexity=task['complexity'],
+                    task_context=task.get('context', {})
+                )
+                print(f"Task injected to Node {node_id}: {result}")
+                logging.info(f"Task {task['id']} injected to Node {node_id}: {result}")
+            except Exception as e:
+                error_message = f"Error injecting Task {task['id']} to Node {node_id}: {e}"
+                print(error_message)
+                logging.error(error_message)
+            return
+
+    error_message = f"Node {node_id} not found in the environment."
+    print(error_message)
+   
+
+# launcher.py
+
+#!/usr/bin/env python3
+import os
+import sys
+import subprocess
+import platform
+import json
+import venv
+from pathlib import Path
+
+class SystemLauncher:
+    def __init__(self):
+        self.base_path = Path(os.path.dirname(os.path.abspath(__file__)))
+        self.venv_path = self.base_path / "venv"
+        self.requirements_path = self.base_path / "requirements.txt"
+        
+    def create_requirements(self):
+        """Create requirements.txt if it doesn't exist"""
+        requirements = [
+            "numpy>=1.21.0",
+            "scipy>=1.7.0",
+            "networkx>=2.6.0",
+            "matplotlib>=3.4.0",
+            "PyQt5>=5.15.0",
+            "rdkit>=2021.03.1",
+            "requests>=2.26.0"
+        ]
+        
+        with open(self.requirements_path, "w") as f:
+            f.write("\n".join(requirements))
+    
+    def setup_virtual_environment(self):
+        """Create and configure virtual environment"""
+        if not self.venv_path.exists():
+            print("Creating virtual environment...")
+            venv.create(self.venv_path, with_pip=True)
+            
+        # Get path to python and pip in virtual environment
+        if platform.system() == "Windows":
+            python_path = self.venv_path / "Scripts" / "python.exe"
+            pip_path = self.venv_path / "Scripts" / "pip.exe"
+        else:
+            python_path = self.venv_path / "bin" / "python"
+            pip_path = self.venv_path / "bin" / "pip"
+            
+        # Install requirements
+        print("Installing requirements...")
+        subprocess.check_call([str(pip_path), "install", "-r", str(self.requirements_path)])
+        
+        return python_path
+    
+    def launch_application(self, python_path):
+        """Launch the main application"""
+        main_script = self.base_path / "main.py"
+        subprocess.check_call([str(python_path), str(main_script)])
+    
+    def run(self):
+        """Main execution flow"""
+        try:
+            print("Initializing Kaleidoscope AI System...")
+            
+            # Create requirements file if needed
+            if not self.requirements_path.exists():
+                self.create_requirements()
+            
+            # Setup virtual environment and get python path
+            python_path = self.setup_virtual_environment()
+            
+            # Launch application
+            print("Launching application...")
+            self.launch_application(python_path)
+            
+        except Exception as e:
+            print(f"Error: {e}")
+            input("Press Enter to exit...")
+            sys.exit(1)
+
+if __name__ == "__main__":
+    launcher = SystemLauncher()
+    launcher.run()
+
+# main-gui.py
+
+import sys
+import os
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
+                           QTabWidget, QPushButton, QLabel, QTextEdit, QComboBox)
+from PyQt5.QtCore import Qt
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+import networkx as nx
+
+# Import system components
+from quantum_engine import NeuroQuantumEngine, QuantumNode
+from drug_discovery import DrugDiscoveryNetwork, DrugNode
+from ecosystem import KnowledgeEcosystem, EcosystemNode
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Kaleidoscope AI System")
+        self.setGeometry(100, 100, 1200, 800)
+        
+        # Initialize system components
+        self.quantum_engine = NeuroQuantumEngine()
+        self.drug_network = DrugDiscoveryNetwork()
+        self.ecosystem = KnowledgeEcosystem()
+        
+        # Setup UI
+        self.setup_ui()
+        
+    def setup_ui(self):
+        # Create central widget and layout
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        layout = QVBoxLayout(central_widget)
+        
+        # Create tab widget
+        tabs = QTabWidget()
+        
+        # Add tabs for different components
+        tabs.addTab(self.create_quantum_tab(), "Quantum Network")
+        tabs.addTab(self.create_drug_tab(), "Drug Discovery")
+        tabs.addTab(self.create_ecosystem_tab(), "Knowledge Ecosystem")
+        
+        layout.addWidget(tabs)
+        
+    def create_quantum_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        
+        # Controls
+        control_widget = QWidget()
+        control_layout = QVBoxLayout(control_widget)
+        
+        add_node_btn = QPushButton("Add Quantum Node")
+        add_node_btn.clicked.connect(self.add_quantum_node)
+        
+        propagate_btn = QPushButton("Propagate States")
+        propagate_btn.clicked.connect(self.propagate_quantum_states)
+        
+        # Visualization
+        self.quantum_canvas = self.create_network_canvas()
+        
+        control_layout.addWidget(add_node_btn)
+        control_layout.addWidget(propagate_btn)
+        
+        layout.addWidget(control_widget)
+        layout.addWidget(self.quantum_canvas)
+        
+        return tab
+        
+    def create_drug_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        
+        # Add molecule input
+        self.molecule_input = QTextEdit()
+        self.molecule_input.setPlaceholderText("Enter SMILES notation...")
+        
+        analyze_btn = QPushButton("Analyze Molecule")
+        analyze_btn.clicked.connect(self.analyze_molecule)
+        
+        # Visualization
+        self.drug_canvas = self.create_network_canvas()
+        
+        layout.addWidget(self.molecule_input)
+        layout.addWidget(analyze_btn)
+        layout.addWidget(self.drug_canvas)
+        
+        return tab
+        
+    def create_ecosystem_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        
+        # Controls
+        control_widget = QWidget()
+        control_layout = QVBoxLayout(control_widget)
+        
+        self.specialization_combo = QComboBox()
+        self.specialization_combo.addItems(["generalist", "explorer", "specialist"])
+        
+        add_node_btn = QPushButton("Add Ecosystem Node")
+        add_node_btn.clicked.connect(self.add_ecosystem_node)
+        
+        simulate_btn = QPushButton("Run Simulation")
+        simulate_btn.clicked.connect(self.run_ecosystem_simulation)
+        
+        # Visualization
+        self.ecosystem_canvas = self.create_network_canvas()
+        
+        control_layout.addWidget(self.specialization_combo)
+        control_layout.addWidget(add_node_btn)
+        control_layout.addWidget(simulate_btn)
+        
+        layout.addWidget(control_widget)
+        layout.addWidget(self.ecosystem_canvas)
+        
+        return tab
+        
+    def create_network_canvas(self):
+        figure, ax = plt.subplots()
+        canvas = FigureCanvas(figure)
+        return canvas
+        
+    def add_quantum_node(self):
+        node_id = f"quantum_node_{len(self.quantum_engine.nodes)}"
+        node = QuantumNode(node_id)
+        self.quantum_engine.add_node(node)
+        self.update_quantum_visualization()
+        
+    def propagate_quantum_states(self):
+        self.quantum_engine.propagate_states()
+        insights = self.quantum_engine.extract_global_insights()
+        print("Quantum Insights:", insights)
+        self.update_quantum_visualization()
+        
+    def analyze_molecule(self):
+        smiles = self.molecule_input.toPlainText().strip()
+        if smiles:
+            node = DrugNode("analysis_node", specialization="analyzer")
+            result = node.process_molecule(smiles)
+            if result:
+                print("Molecule Analysis:", result)
+                self.update_drug_visualization()
+                
+    def add_ecosystem_node(self):
+        specialization = self.specialization_combo.currentText()
+        node_id = f"eco_node_{len(self.ecosystem.nodes)}"
+        node = EcosystemNode(node_id, specialization=specialization)
+        self.ecosystem.add_node(node)
+        self.update_ecosystem_visualization()
+        
+    def run_ecosystem_simulation(self):
+        self.ecosystem.simulate(steps=5)
+        self.update_ecosystem_visualization()
+        
+    def update_quantum_visualization(self):
+        self.update_network_visualization(
+            self.quantum_engine.network, 
+            self.quantum_canvas)
+            
+    def update_drug_visualization(self):
+        self.update_network_visualization(
+            self.drug_network.network, 
+            self.drug_canvas)
+            
+    def update_ecosystem_visualization(self):
+        self.update_network_visualization(
+            self.ecosystem.network, 
+            self.ecosystem_canvas)
+            
+    def update_network_visualization(self, network, canvas):
+        canvas.figure.clear()
+        pos = nx.spring_layout(network)
+        nx.draw(network, pos, 
+               with_labels=True, 
+               node_color='lightblue',
+               node_size=500, 
+               ax=canvas.figure.gca())
+        canvas.draw()
+
+def main():
+    # Create application
+    app = QApplication(sys.argv)
+    
+    # Set style sheet for modern look
+    app.setStyleSheet("""
+        QMainWindow {
+            background: #f0f0f0;
+        }
+        QPushButton {
+            background-color: #2196F3;
+            color: white;
+            padding: 8px;
+            border-radius: 4px;
+            min-width: 100px;
+        }
+        QPushButton:hover {
+            background-color: #1976D2;
+        }
+        QComboBox {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+    """)
+    
+    # Create and show main window
+    window = MainWindow()
+    window.show()
+    
+    # Start event loop
+    sys.exit(app.exec_())
+
+if __name__ == "__main__":
+    main()
+
+# membrane-class.py
+
+class Membrane:
+    """
+    Acts as a selective barrier for data ingestion and filtering.
+    Validates and cleanses incoming data before passing it to the processing nodes.
+    """
+    def __init__(self):
+        self.data_queue = []
+        self.noise_threshold = 0.3
+        self.validation_rules = {
+            "priority": lambda x: isinstance(x, (int, float)) and 0 <= x <= 5,
+            "important_field": lambda x: isinstance(x, str) and len(x) > 0
+        }
+        self.logger = logging.getLogger("Membrane")
+        self.filtered_count = 0
+        self.total_ingested = 0
+
+    def ingest_data(self, data: List[Dict[str, Any]]):
+        """
+        Ingest raw data into the membrane for processing.
+        Performs initial validation and queuing.
+        """
+        self.total_ingested += len(data)
+        for item in data:
+            if self._validate_data_item(item):
+                self.data_queue.append(item)
+            else:
+                self.filtered_count += 1
+                self.logger.warning(f"Data item failed validation: {item}")
+        
+        self.logger.info(f"Ingested {len(self.data_queue)} items, filtered {self.filtered_count} items")
+
+    def _validate_data_item(self, item: Dict[str, Any]) -> bool:
+        """
+        Validate individual data items against defined rules.
+        Returns True if the item passes validation.
+        """
+        # Check priority if present
+        if "priority" in item and not self.validation_rules["priority"](item["priority"]):
+            return False
+
+        # Check important fields when present
+        if "important_field" in item and not self.validation_rules["important_field"](item["important_field"]):
+            return False
+
+        # Calculate noise ratio (proportion of unexpected fields)
+        expected_fields = {"priority", "important_field", "other_field", "non_important_field"}
+        unexpected_fields = set(item.keys()) - expected_fields
+        noise_ratio = len(unexpected_fields) / len(item) if item else 1
+
+        return noise_ratio < self.noise_threshold
+
+    def get_filtered_data(self) -> List[Dict[str, Any]]:
+        """
+        Retrieve filtered and validated data from the membrane.
+        Clears the data queue after retrieval.
+        """
+        filtered_data = self.data_queue.copy()
+        self.data_queue.clear()
+        return filtered_data
+
+    def adjust_thresholds(self, success_rate: float):
+        """
+        Dynamically adjust filtering thresholds based on processing success rate.
+        """
+        if success_rate < 0.5:
+            self.noise_threshold *= 0.9  # More strict filtering
+        elif success_rate > 0.9:
+            self.noise_threshold = min(0.5, self.noise_threshold * 1.1)  # More lenient filtering
+        
+        self.logger.info(f"Adjusted noise threshold to {self.noise_threshold}")
+
+    def get_membrane_stats(self) -> Dict[str, Any]:
+        """
+        Return statistics about membrane performance.
+        """
+        return {
+            "total_ingested": self.total_ingested,
+            "filtered_count": self.filtered_count,
+            "current_queue_size": len(self.data_queue),
+            "noise_threshold": self.noise_threshold
+        }
+
+# specialized-nodes.py
+
+# specialized/quantum_nodes.py
+from core.base import BaseNode, BaseNetwork
+from scipy.stats import unitary_group
+import numpy as np
+from typing import Dict, Any, List
+from rdkit import Chem
+from rdkit.Chem import AllChem
+
+class QuantumNode(BaseNode):
+    """Quantum computing node for molecular analysis and state processing."""
+    
+    def __init__(self, node_id: str, state_dim: int = 4):
+        super().__init__(node_id)
+        self.state_dim = state_dim
+        self.quantum_state = unitary_group.rvs(state_dim)
+        self.entanglement_history = []
+        self.characteristics.update({
+            "type": "quantum",
+            "state_dimension": state_dim
+        })
+
+    def process_data(self, data: Any) -> Dict:
+        """Process data through quantum operations."""
+        self.consume_energy(10.0)
+        
+        if isinstance(data, str) and len(data) > 0:
+            # Process SMILES string
+            return self._process_molecular_structure(data)
+        elif isinstance(data, np.ndarray):
+            # Process quantum state
+            return self._process_quantum_state(data)
+        else:
+            return {"error": "Unsupported data type"}
+
+    def _process_molecular_structure(self, smiles: str) -> Dict:
+        """Analyze molecular structure using quantum computing."""
+        try:
+            mol = Chem.MolFromSmiles(smiles)
+            if not mol:
+                return {"error": "Invalid SMILES string"}
+
+            # Calculate molecular features
+            conformer = AllChem.EmbedMolecule(mol, randomSeed=42)
+            if conformer == -1:
+                return {"error": "Could not generate 3D conformer"}
+
+            # Create quantum representation
+            coords = mol.GetConformer().GetPositions()
+            quantum_features = self._coords_to_quantum_state(coords)
+            
+            # Apply quantum operations
+            evolved_state = np.dot(self.quantum_state, quantum_features)
+            eigenvalues = np.linalg.eigvals(evolved_state)
+            
+            return {
+                "molecular_analysis": {
+                    "eigenspectrum": eigenvalues.tolist(),
+                    "entanglement_measure": self._calculate_entanglement(evolved_state),
+                    "state_purity": np.abs(np.trace(np.dot(evolved_state, evolved_state.conj().T)))
+                }
+            }
+        except Exception as e:
+            self.logger.error(f"Error in molecular processing: {e}")
+            return {"error": str(e)}
+
+    def _process_quantum_state(self, state: np.ndarray) -> Dict:
+        """Process pure quantum state data."""
+        try:
+            # Apply quantum operations
+            evolved_state = np.dot(self.quantum_state, state)
+            
+            # Calculate quantum metrics
+            entanglement = self._calculate_entanglement(evolved_state)
+            coherence = np.abs(np.sum(evolved_state))
+            
+            # Store results in memory
+            self.store_in_memory({
+                "state": evolved_state,
+                "entanglement": entanglement,
+                "coherence": coherence
+            })
+            
+            return {
+                "quantum_analysis": {
+                    "entanglement": entanglement,
+                    "coherence": coherence,
+                    "state_norm": np.linalg.norm(evolved_state)
+                }
+            }
+        except Exception as e:
+            self.logger.error(f"Error in quantum processing: {e}")
+            return {"error": str(e)}
+
+    def _coords_to_quantum_state(self, coords: np.ndarray) -> np.ndarray:
+        """Convert molecular coordinates to quantum state."""
+        flattened = coords.flatten()
+        normalized = flattened / np.linalg.norm(flattened)
+        padded = np.pad(normalized, (0, self.state_dim**2 - len(normalized)), 'constant')
+        return padded.reshape((self.state_dim, self.state_dim))
+
+    def _calculate_entanglement(self, state: np.ndarray) -> float:
+        """Calculate entanglement entropy of the quantum state."""
+        try:
+            # Calculate density matrix
+            if state.ndim == 1:
+                state = state.reshape(-1, 1)
+            rho = np.dot(state, state.conj().T)
+            
+            # Calculate von Neumann entropy
+            eigenvals = np.linalg.eigvals(rho)
+            eigenvals = eigenvals[eigenvals > 1e-10]
+            entropy = -np.sum(eigenvals * np.log2(eigenvals))
+            
+            return float(np.real(entropy))
+        except Exception as e:
+            self.logger.error(f"Error calculating entanglement: {e}")
+            return 0.0
+
+    def update_state(self):
+        """Update quantum state based on interactions."""
+        # Apply random unitary evolution
+        random_unitary = unitary_group.rvs(self.state_dim)
+        self.quantum_state = np.dot(random_unitary, self.quantum_state)
+        self.consume_energy(5.0)
+
+    def interact(self, other_node: 'QuantumNode'):
+        """Quantum interaction between nodes."""
+        if isinstance(other_node, QuantumNode):
+            # Simulate quantum entanglement
+            interaction_matrix = np.kron(self.quantum_state, other_node.quantum_state)
+            entanglement = self._calculate_entanglement(interaction_matrix)
+            
+            self.entanglement_history.append({
+                "partner_id": other_node.node_id,
+                "entanglement": entanglement
+            })
+            
+            self.consume_energy(8.0)
+            return entanglement
+        return 0.0
+
+class QuantumNetwork(BaseNetwork):
+    """Network of quantum nodes for distributed quantum computing."""
+    
+    def __init__(self):
+        super().__init__()
+        self.entanglement_map = {}
+        self.global_state = None
+
+    def add_node(self, node: QuantumNode):
+        """Add a quantum node to the network."""
+        if not isinstance(node, QuantumNode):
+            raise ValueError("Must be a QuantumNode instance")
+        
+        self.nodes.append(node)
+        self.network.add_node(node.node_id, 
+                            type="quantum",
+                            state_dim=node.state_dim)
+        self._update_global_state()
+
+    def process_data(self, data: Any) -> Dict:
+        """Process data through the quantum network."""
+        results = {}
+        active_nodes = [node for node in self.nodes if node.energy > 10.0]
+        
+        if not active_nodes:
+            return {"error": "No active nodes available"}
+
+        # Distribute data processing across nodes
+        for i, node in enumerate(active_nodes):
+            if isinstance(data, list):
+                # Process data batch
+                chunk = data[i::len(active_nodes)]  # Interleaved distribution
+                if chunk:
+                    results[node.node_id] = node.process_data(chunk[0])
+            else:
+                # Process single piece of data
+                results[node.node_id] = node.process_data(data)
+
+        # Aggregate results
+        self._update_global_state()
+        
+        return {
+            "node_results": results,
+            "network_state": self.get_network_state(),
+            "entanglement_map": self.entanglement_map
+        }
+
+    def _update_global_state(self):
+        """Update the global quantum state of the network."""
+        if not self.nodes:
+            return
+
+        # Combine quantum states of all nodes
+        states = []
+        for node in self.nodes:
+            states.append(node.quantum_state)
+        
+        try:
+            # Create a composite state
+            self.global_state = states[0]
+            for state in states[1:]:
+                self.global_state = np.kron(self.global_state, state)
+        except Exception as e:
+            self.logger.error(f"Error updating global state: {e}")
+
+    def optimize_network(self):
+        """Optimize network connections based on entanglement."""
+        for i, node1 in enumerate(self.nodes):
+            for node2 in self.nodes[i+1:]:
+                entanglement = node1.interact(node2)
+                self.entanglement_map[(node1.node_id, node2.node_id)] = entanglement
+
+                # Optimize connections based on entanglement threshold
+                if entanglement > 0.5:  # High entanglement
+                    if not self.network.has_edge(node1.node_id, node2.node_id):
+                        self.connect_nodes(node1.node_id, node2.node_id)
+                elif entanglement < 0.2:  # Low entanglement
+                    if self.network.has_edge(node1.node_id, node2.node_id):
+                        self.network.remove_edge(node1.node_id, node2.node_id)
+

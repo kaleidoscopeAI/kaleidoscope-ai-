@@ -1,76 +1,112 @@
-node_management/core/energy_management.py
-Python
+# node_management/energy_management.py
+
+import logging
+from collections import defaultdict
+
+# Configure logging for EnergyManager
+logging.basicConfig(
+    filename="energy_manager.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 class EnergyManager:
-    def __init__(self, node_manager: NodeLifeCycleManager):
-        self.node_manager = node_manager
-        self.total_energy_capacity = self._calculate_total_energy_capacity()
+    def __init__(self, total_energy=1000.0):
+        """
+        Manages energy distribution and consumption for nodes and supernodes.
 
-    def _calculate_total_energy_capacity(self) -> float:
-        """Calculate the total energy capacity of all nodes."""
-        return sum(node.capacity for node in self.node_manager.nodes.values())
+        Args:
+            total_energy (float): Total energy available to the system.
+        """
+        self.total_energy = total_energy
+        self.node_energy = defaultdict(float)
+        self.supernode_energy = defaultdict(float)
 
-    def get_energy_distribution(self) -> dict:
-        """Get the current energy distribution across all nodes."""
-        distribution = {}
-        for node_id, node in self.node_manager.nodes.items():
-            distribution[node_id] = {
-                'capacity': node.capacity,
-                'current_load': self._calculate_node_load(node),
-                'status': node.status
-            }
-        return distribution
+    def allocate_node_energy(self, node_id, energy_amount):
+        """
+        Allocates energy to a specific node.
 
-    def _calculate_node_load(self, node: Node) -> float:
-        """Calculate the current load of a node based on its tasks."""
-        # Placeholder for a more sophisticated load calculation
-        return len(node.tasks) * 0.1  # Assume each task consumes 10% of capacity
+        Args:
+            node_id (str): Unique identifier for the node.
+            energy_amount (float): Amount of energy to allocate.
 
-    def optimize_energy_usage(self, threshold: float = 0.8):
-        """Optimize energy usage across nodes."""
-        for node_id, node in self.node_manager.nodes.items():
-            load = self._calculate_node_load(node)
-            if load > threshold * node.capacity:
-                self._redistribute_load(node)
+        Returns:
+            None
+        """
+        if self.total_energy >= energy_amount:
+            self.node_energy[node_id] += energy_amount
+            self.total_energy -= energy_amount
+            logging.info(f"Allocated {energy_amount} energy to node {node_id}")
+        else:
+            logging.warning(f"Insufficient energy to allocate to node {node_id}")
 
-    def _redistribute_load(self, overloaded_node: Node):
-        """Redistribute tasks from an overloaded node to underloaded nodes."""
-        underloaded_nodes = [
-            n for n in self.node_manager.nodes.values()
-            if n.node_id != overloaded_node.node_id and self._calculate_node_load(n) < 0.5 * n.capacity
-        ]
+    def allocate_supernode_energy(self, supernode_id, energy_amount):
+        """
+        Allocates energy to a specific supernode.
 
-        if underloaded_nodes:
-            for task in overloaded_node.tasks:
-                target_node = underloaded_nodes.pop(0)
-                target_node.assign_task(task)
-                overloaded_node.tasks.remove(task)
-                if not underloaded_nodes:
-                    break
+        Args:
+            supernode_id (str): Unique identifier for the supernode.
+            energy_amount (float): Amount of energy to allocate.
 
-    def get_low_energy_nodes(self, threshold: float = 0.2) -> list:
-        """Identify nodes that are low on energy."""
-        low_energy_nodes = []
-        for node_id, node in self.node_manager.nodes.items():
-            if self._calculate_node_load(node) < threshold * node.capacity:
-                low_energy_nodes.append(node_id)
-        return low_energy_nodes
+        Returns:
+            None
+        """
+        if self.total_energy >= energy_amount:
+            self.supernode_energy[supernode_id] += energy_amount
+            self.total_energy -= energy_amount
+            logging.info(f"Allocated {energy_amount} energy to supernode {supernode_id}")
+        else:
+            logging.warning(f"Insufficient energy to allocate to supernode {supernode_id}")
 
-    def set_node_energy_saving_mode(self, node_id: str, enabled: bool):
-        """Enable or disable energy saving mode for a node."""
-        node = self.node_manager.get_node(node_id)
-        if node:
-            if enabled:
-                # Reduce task load to conserve energy
-                while self._calculate_node_load(node) > 0.3 * node.capacity and node.tasks:
-                    node.tasks.pop()
-                node.status = "energy_saving"
-            else:
-                node.status = "idle"  # Return to normal operation
-                
-    def get_state(self) -> dict:
-        """Return the current state of the energy manager."""
-        return {
-            'total_energy_capacity': self.total_energy_capacity,
-            'energy_distribution': self.get_energy_distribution()
-        }
+    def consume_node_energy(self, node_id, energy_consumed):
+        """
+        Consumes energy from a specific node.
+
+        Args:
+            node_id (str): Unique identifier for the node.
+            energy_consumed (float): Amount of energy consumed.
+
+        Returns:
+            None
+        """
+        if self.node_energy[node_id] >= energy_consumed:
+            self.node_energy[node_id] -= energy_consumed
+            logging.info(f"Node {node_id} consumed {energy_consumed} energy")
+        else:
+            logging.warning(f"Node {node_id} has insufficient energy")
+
+    def consume_supernode_energy(self, supernode_id, energy_consumed):
+        """
+        Consumes energy from a specific supernode.
+
+        Args:
+            supernode_id (str): Unique identifier for the supernode.
+            energy_consumed (float): Amount of energy consumed.
+
+        Returns:
+            None
+        """
+        if self.supernode_energy[supernode_id] >= energy_consumed:
+            self.supernode_energy[supernode_id] -= energy_consumed
+            logging.info(f"Supernode {supernode_id} consumed {energy_consumed} energy")
+        else:
+            logging.warning(f"Supernode {supernode_id} has insufficient energy")
+
+    def get_remaining_energy(self):
+        """
+        Returns the total remaining energy in the system.
+
+        Returns:
+            float: Remaining energy.
+        """
+        return self.total_energy
+
+# Example usage
+if __name__ == "__main__":
+    energy_manager = EnergyManager(total_energy=1000)
+    energy_manager.allocate_node_energy("node1", 100)
+    energy_manager.allocate_supernode_energy("supernode1", 200)
+    energy_manager.consume_node_energy("node1", 50)
+    energy_manager.consume_supernode_energy("supernode1", 100)
+    remaining_energy = energy_manager.get_remaining_energy()
+    print(f"Remaining energy: {remaining_energy}")

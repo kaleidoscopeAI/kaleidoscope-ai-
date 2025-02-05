@@ -1,0 +1,200 @@
+import networkx as nx
+from typing import Dict, List, Tuple, Optional
+import numpy as np
+from dataclasses import dataclass
+from collections import defaultdict
+from task_flow_pipeline import TaskFlowPipeline
+import boto3
+import random
+
+@dataclass
+class NodeMetrics:
+    processing_power: float
+    reliability: float
+    connection_strength: float
+    task_success_rate: float
+
+    def calculate_node_score(self) -> float:
+        """
+        Calculate the overall score for a node based on its metrics.
+        """
+        return (self.processing_power * 0.3 + 
+                self.reliability * 0.3 + 
+                self.connection_strength * 0.2 + 
+                self.task_success_rate * 0.2)
+
+class AdaptiveNodeNetwork:
+    def __init__(self):
+        """
+        Initialize the adaptive node network with a directed graph.
+        """
+        self.network = nx.DiGraph()
+        self.node_metrics: Dict[str, NodeMetrics] = {}
+        self.task_history = defaultdict(list)
+        self.edge_weights = defaultdict(float)
+
+    def add_node(self, node_id: str, metrics: NodeMetrics) -> None:
+        """
+        Add a node to the network with its associated metrics.
+
+        Parameters:
+        - node_id: Unique identifier for the node.
+        - metrics: NodeMetrics object containing the node's metrics.
+        """
+        self.network.add_node(node_id)
+        self.node_metrics[node_id] = metrics
+        self._reorganize_network()
+
+    def _calculate_edge_weight(self, source: str, target: str) -> float:
+        """
+        Calculate the weight of an edge based on the metrics of the source and target nodes.
+
+        Parameters:
+        - source: Source node ID.
+        - target: Target node ID.
+
+        Returns:
+        - Weight of the edge.
+        """
+        source_metrics = self.node_metrics[source]
+        target_metrics = self.node_metrics[target]
+
+        return (source_metrics.connection_strength * 
+                target_metrics.reliability * 
+                (1 + self.edge_weights[(source, target)]))
+
+    def _reorganize_network(self) -> None:
+        """
+        Reorganize the network topology based on node metrics and performance.
+        """
+        scores = {node: metrics.calculate_node_score() 
+                  for node, metrics in self.node_metrics.items()}
+
+        edges = [(n1, n2, abs(scores[n1] - scores[n2])) 
+                 for n1 in self.network.nodes 
+                 for n2 in self.network.nodes if n1 != n2]
+
+        mst = nx.minimum_spanning_tree(
+            nx.Graph([(u, v, {'weight': w}) for u, v, w in edges]))
+
+        self.network.clear_edges()
+        self.network.add_edges_from(mst.edges())
+
+    def optimize_task_distribution(self, tasks: List[Dict]) -> Dict[str, List[Dict]]:
+        """
+        Distribute tasks optimally across nodes using graph coloring.
+
+        Parameters:
+        - tasks: List of tasks with complexity and other attributes.
+
+        Returns:
+        - Dictionary of tasks assigned to each node.
+        """
+        node_assignments = defaultdict(list)
+
+        capacities = {
+            node: int(self.node_metrics[node].processing_power * 10)
+            for node in self.network.nodes
+        }
+
+        sorted_tasks = sorted(tasks, key=lambda x: x.get('complexity', 0))
+
+        colors = nx.greedy_color(self.network)
+        color_groups = defaultdict(list)
+        for node, color in colors.items():
+            color_groups[color].append(node)
+
+        current_color = 0
+        for task in sorted_tasks:
+            if not color_groups[current_color]:
+                current_color = (current_color + 1) % (max(colors.values()) + 1)
+
+            target_nodes = color_groups[current_color]
+            best_node = max(target_nodes, 
+                            key=lambda n: self.node_metrics[n].task_success_rate 
+                            if capacities[n] > 0 else float('-inf'))
+
+            if capacities[best_node] > 0:
+                node_assignments[best_node].append(task)
+                capacities[best_node] -= 1
+
+            current_color = (current_color + 1) % (max(colors.values()) + 1)
+
+        return dict(node_assignments)
+
+    def update_network_metrics(self, task_results: Dict[str, List[Dict]]) -> None:
+        """
+        Update network metrics based on task execution results.
+
+        Parameters:
+        - task_results: Dictionary of task results for each node.
+        """
+        for node_id, results in task_results.items():
+            success_rate = sum(1 for r in results if r['status'] == 'success') / len(results)
+
+            current_metrics = self.node_metrics[node_id]
+            self.node_metrics[node_id] = NodeMetrics(
+                processing_power=current_metrics.processing_power * 0.9 + success_rate * 0.1,
+                reliability=current_metrics.reliability * 0.9 + success_rate * 0.1,
+                connection_strength=current_metrics.connection_strength,
+                task_success_rate=success_rate
+            )
+
+            for neighbor in self.network.neighbors(node_id):
+                self.edge_weights[(node_id, neighbor)] *= 0.9
+                self.edge_weights[(node_id, neighbor)] += success_rate * 0.1
+
+        self._reorganize_network()
+
+class TaskFlowPipelineEnhanced(TaskFlowPipeline):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.network = AdaptiveNodeNetwork()
+
+    def add_node(self, node_id):
+        super().add_node(node_id)
+        metrics = NodeMetrics(
+            processing_power=np.random.uniform(0.7, 1.0),
+            reliability=np.random.uniform(0.8, 1.0),
+            connection_strength=np.random.uniform(0.7, 1.0),
+            task_success_rate=1.0
+        )
+        self.network.add_node(node_id, metrics)
+
+    def distribute_tasks(self):
+        """
+        Enhanced task distribution using the adaptive network.
+        """
+        try:
+            response = self.s3.list_objects_v2(Bucket=self.membrane_bucket, 
+                                             Prefix="tasks/")
+            if "Contents" in response:
+                tasks = [{'key': obj['Key'], 'complexity': random.random()} 
+                        for obj in response["Contents"]]
+
+                distribution = self.network.optimize_task_distribution(tasks)
+
+                task_results = defaultdict(list)
+                for node_id, node_tasks in distribution.items():
+                    node = next(n for n in self.nodes 
+                              if n.node_id == node_id)
+                    for task in node_tasks:
+                        try:
+                            task_data = self.s3.get_object(
+                                Bucket=self.membrane_bucket, 
+                                Key=task['key'])["Body"].read().decode("utf-8")
+                            node.execute_task(task_data)
+                            task_results[node_id].append({
+                                'status': 'success' 
+                                if node.state != 'error' else 'failure'
+                            })
+                            node.delete_completed_task(task['key'])
+                        except Exception as e:
+                            task_results[node_id].append({'status': 'failure'})
+                            print(f"Error processing task: {e}")
+
+                self.network.update_network_metrics(task_results)
+
+        except Exception as e:
+            print(f"Error in enhanced task distribution: {e}")
+

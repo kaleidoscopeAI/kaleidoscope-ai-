@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI System Monitor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: auto;
+        }
+        .dashboard {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            flex: 1;
+            min-width: 300px;
+        }
+        .node-status, .chatbot {
+            display: flex;
+            flex-direction: column;
+        }
+        .message-box {
+            display: flex;
+            margin-top: 10px;
+        }
+        .message-box input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .message-box button {
+            padding: 10px 15px;
+            margin-left: 10px;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>AI System Dashboard</h2>
+        <div class="dashboard">
+            <div class="card">
+                <h3>Node Status</h3>
+                <canvas id="nodeChart"></canvas>
+            </div>
+            <div class="card chatbot">
+                <h3>Chatbot Interface</h3>
+                <div id="chat-log"></div>
+                <div class="message-box">
+                    <input type="text" id="chat-input" placeholder="Ask the AI...">
+                    <button onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        var socket = io();
+        function sendMessage() {
+            let input = document.getElementById('chat-input').value;
+            document.getElementById('chat-log').innerHTML += `<p><strong>You:</strong> ${input}</p>`;
+            socket.emit('chat_message', input);
+        }
+        socket.on('response', function(data) {
+            document.getElementById('chat-log').innerHTML += `<p><strong>AI:</strong> ${data}</p>`;
+        });
+    </script>
+</body>
+</html>
+

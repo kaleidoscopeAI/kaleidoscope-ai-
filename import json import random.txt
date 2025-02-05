@@ -1,0 +1,119 @@
+import json
+import random
+import boto3
+import socketio
+import threading
+import time
+import numpy as np
+from typing import Dict, List
+from botocore.exceptions import ClientError
+
+sio = socketio.Client()
+
+class PerspectiveEngine:
+    def __init__(self, insights_bucket: str, sns_topic_arn: str, cloudwatch_log_group: str, region_name="us-east-1"):
+        self.s3 = boto3.client("s3", region_name=region_name)
+        self.sns = boto3.client("sns", region_name=region_name)
+        self.logs = boto3.client("logs", region_name=region_name)
+        self.insights_bucket = insights_bucket
+        self.sns_topic_arn = sns_topic_arn
+        self.cloudwatch_log_group = cloudwatch_log_group
+        print("Perspective Engine initialized.")
+
+    def log_event(self, message: str):
+        try:
+            timestamp = int(time.time() * 1000)
+            self.logs.put_log_events(
+                logGroupName=self.cloudwatch_log_group,
+                logStreamName="PerspectiveEngineStream",
+                logEvents=[{"timestamp": timestamp, "message": message}]
+            )
+            print(f"Logged event: {message}")
+        except Exception as e:
+            print(f"CloudWatch logging error: {e}")
+
+    def generate_speculative_insights(self, insights: List[Dict]) -> List[Dict]:
+        speculative_insights = []
+        for insight in insights:
+            novelty_score = np.exp(-abs(insight.get("novelty", 0.5) - random.uniform(0, 1)))
+            weighted_confidence = np.tanh(insight.get("confidence", 0.5) * insight.get("impact", 0.5))
+            speculative_variation = {
+                "id": f"speculative-{insight['id']}",
+                "original": insight["content"],
+                "speculated": self._alter_content(insight["content"]),
+                "confidence": max(weighted_confidence - 0.1, 0.1) * novelty_score,
+                "impact": random.uniform(0.5, 1.0) * (1 + novelty_score)
+            }
+            print(f"Generated speculative insight: {speculative_variation}")
+            speculative_insights.append(speculative_variation)
+        return speculative_insights
+
+    def _alter_content(self, content: str) -> str:
+        variations = [
+            "What if this insight were reversed?",
+            "Consider an alternative outcome.",
+            "Could this insight be incomplete?",
+            "Look at this from an inverse perspective."
+        ]
+        return f"{random.choice(variations)} {content}"
+
+    def store_speculative_insights(self, insights: List[Dict]) -> None:
+        for insight in insights:
+            try:
+                key = f"speculative_insights/{insight['id']}.json"
+                self.s3.put_object(Bucket=self.insights_bucket, Key=key, Body=json.dumps(insight))
+                print(f"Stored speculative insight in S3: {insight['id']}")
+                self.sns.publish(
+                    TopicArn=self.sns_topic_arn,
+                    Message=json.dumps({"speculative_insight": insight}),
+                    Subject="New Speculative Insight Available"
+                )
+                sio.emit("update_insights", insight)
+                self.log_event(f"Stored speculative insight: {insight['id']}")
+            except ClientError as e:
+                print(f"Error storing speculative insight {insight['id']}: {e.response['Error']['Message']}")
+            except Exception as e:
+                print(f"Unexpected error storing speculative insight {insight['id']}: {e}")
+
+    def process_insights(self):
+        print("Starting speculative insight processing...")
+        insights = self._fetch_validated_insights()
+        if not insights:
+            self.log_event("No validated insights available for speculation.")
+            print("No validated insights available for speculation.")
+            return
+        ranked_insights = sorted(insights, key=lambda x: np.tanh(x.get("confidence", 0.5) * x.get("impact", 0.5)), reverse=True)
+        speculative_insights = self.generate_speculative_insights(ranked_insights)
+        self.store_speculative_insights(speculative_insights)
+        self.log_event("Perspective Engine processing complete.")
+        print("Perspective Engine processing complete.")
+
+    def _fetch_validated_insights(self) -> List[Dict]:
+        insights = []
+        try:
+            response = self.s3.list_objects_v2(Bucket=self.insights_bucket, Prefix="validated_insights/")
+            if "Contents" in response:
+                for obj in response["Contents"]:
+                    key = obj["Key"]
+                    data = self.s3.get_object(Bucket=self.insights_bucket, Key=key)["Body"].read().decode("utf-8")
+                    insights.append(json.loads(data))
+                    print(f"Fetched validated insight: {key}")
+        except ClientError as e:
+            print(f"Error fetching validated insights: {e.response['Error']['Message']}")
+        except Exception as e:
+            print(f"Unexpected error fetching validated insights: {e}")
+        return insights
+
+if __name__ == "__main__":
+    print("Connecting to GUI and initializing Perspective Engine...")
+    sio.connect("http://localhost:5000")
+    engine = PerspectiveEngine(
+        insights_bucket="insights-bucket",
+        sns_topic_arn="arn:aws:sns:us-east-1:123456789012:NodeNotifications",
+        cloudwatch_log_group="/perspective-engine/logs",
+        region_name="us-east-1"
+    )
+    processing_thread = threading.Thread(target=engine.process_insights)
+    processing_thread.start()
+    print("Perspective Engine is running.")
+

@@ -1,0 +1,180 @@
+# adaptive_resonance_network.py
+
+import numpy as np
+from typing import List, Dict, Any
+
+class Node:
+    def __init__(self, node_id):
+        self.node_id = node_id
+        self.connections: List["Node"] = []  # Use List["Node"] for forward reference
+
+    def connect(self, other_node: "Node"):
+        """Connects to another node."""
+        if other_node not in self.connections:
+            self.connections.append(other_node)
+        if self not in other_node.connections:
+            other_node.connections.append(self)
+
+    def share_insights(self, message: Any):
+        """Shares insights with connected nodes."""
+        for node in self.connections:
+            node.receive_insights(message)
+
+    def receive_insights(self, message: Any):
+        """Receives insights from connected nodes."""
+        # Basic implementation, can be overridden by subclasses
+        print(f"Node {self.node_id} received message: {message}")
+
+    def status(self) -> Dict:
+        """Returns the current status of the node."""
+        return {
+            "Node ID": self.node_id,
+            "Connections": len(self.connections),
+        }
+
+# AdaptiveResonanceNetwork.py
+
+import networkx as nx
+import numpy as np
+from typing import List, Dict
+
+# Assuming Node, ResonanceNode, and Network classes are defined as previously shown
+
+class AdaptiveResonanceNetwork(Network):
+    def manage_large_documentation(self, document_chunks: List[Dict], relevance_threshold=0.5):
+        """Processes large-scale documentation spread across multiple nodes."""
+        for chunk in document_chunks:
+            for node in self.nodes:
+                if isinstance(node, ResonanceNode):
+                    relevance = node.calculate_resonance(chunk["content"])
+                    if relevance >= relevance_threshold:
+                        node.learn(chunk["content"], relevance)
+
+    def summarize_network_knowledge(self) -> Dict:
+        """Summarizes insights and knowledge accumulated across the network."""
+        knowledge_summary = {}
+        for node in self.nodes:
+            if isinstance(node, ResonanceNode):
+                knowledge_summary[node.node_id] = {
+                    "Total Insights": len(node.memory),
+                    "Top Insights": node.memory[:5] if node.memory else [],
+                }
+        return knowledge_summary
+
+    def recharge_network(self, recharge_amount: int):
+        """Recharges all nodes in the network."""
+        for node in self.nodes:
+            if isinstance(node, ResonanceNode):
+                node.recharge_energy(recharge_amount)
+
+# network.py
+
+import networkx as nx
+from typing import List, Dict, Any
+
+class Network:
+    def __init__(self):
+        self.nodes: List[Node] = []
+        self.network = nx.Graph()
+
+    def add_node(self, node: Node):
+        """Adds a node to the network."""
+        self.nodes.append(node)
+        self.network.add_node(node.node_id)
+
+    def connect_nodes(self, node_id_1: str, node_id_2: str):
+        """Connects two nodes in the network."""
+        node1 = self.get_node(node_id_1)
+        node2 = self.get_node(node_id_2)
+        if node1 and node2:
+            node1.connect(node2)
+            self.network.add_edge(node_id_1, node_id_2)
+
+    def get_node(self, node_id: str) -> Node | None:
+        """Retrieves a node by its ID."""
+        return next((n for n in self.nodes if n.node_id == node_id), None)
+
+    def propagate_insights(self, message: Any):
+        """Propagates insights across the network."""
+        for node in self.nodes:
+            node.share_insights(message)
+            
+    def send_message_to_node(self, node_id: str, message: Any):
+        """Sends a message to a specific node."""
+        node = self.get_node(node_id)
+        if node:
+            node.receive_insights(message)
+
+    def network_status(self) -> List[Dict]:
+        """Returns the status of all nodes in the network."""
+        return [node.status() for node in self.nodes]
+
+    def visualize(self):
+        """Visualizes the network."""
+        pos = nx.spring_layout(self.network)
+        labels = {node.node_id: node.node_id for node in self.nodes}
+        nx.draw(
+            self.network,
+            pos,
+            with_labels=True,
+            labels=labels,
+            node_size=700,
+            node_color="lightblue",
+        )
+
+# resonance_node_class.py
+
+import numpy as np
+from typing import List, Dict
+
+class ResonanceNode(Node):
+    def __init__(self, node_id, memory_capacity=100, energy=100):
+        super().__init__(node_id)
+        self.memory_capacity = memory_capacity
+        self.energy = energy
+        self.memory: List[np.ndarray] = []
+
+    def ingest_data(self, data: np.ndarray):
+        """Processes incoming data and checks for resonance."""
+        resonance_score = self.calculate_resonance(data)
+        if resonance_score >= 0.5:  # Resonance threshold
+            self.learn(data, resonance_score)
+
+    def calculate_resonance(self, data_item: np.ndarray) -> float:
+        """Calculates resonance with existing memory."""
+        if not self.memory:
+            return 0.0  # No resonance if memory is empty
+        return max(
+            np.dot(data_item, mem) / (np.linalg.norm(data_item) * np.linalg.norm(mem))
+            for mem in self.memory
+        )
+
+    def learn(self, data_item: np.ndarray, resonance_score: float):
+        """Learns new data and updates memory."""
+        if len(self.memory) >= self.memory_capacity:
+            self.memory.pop(0)  # Remove oldest memory
+        self.memory.append(data_item)
+        self.energy -= 10  # Consumes energy for learning
+
+    def recharge_energy(self, amount: int):
+        """Recharges the node's energy."""
+        self.energy = min(100, self.energy + amount)
+        
+    def receive_insights(self, message: Any):
+        """Processes incoming data and checks for resonance."""
+        if isinstance(message, np.ndarray):
+            resonance_score = self.calculate_resonance(message)
+            if resonance_score >= 0.5:  # Resonance threshold
+                self.learn(message, resonance_score)
+        else:
+             print(f"Node {self.node_id} received message: {message}")
+
+    def status(self) -> Dict:
+        """Returns the current status of the node."""
+        status = super().status()
+        status.update({
+            "Energy": self.energy,
+            "Memory Usage": len(self.memory) / self.memory_capacity,
+        })
+        return status
+
