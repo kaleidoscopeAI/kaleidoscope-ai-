@@ -1,0 +1,390 @@
+from typing import List, Dict, Any, Optional, Tuple
+import numpy as np
+from dataclasses import dataclass, field
+
+class BaseEngine:
+    """Base class for both Kaleidoscope and Mirrored engines."""
+    
+    def __init__(self, num_gears: int = 5, num_paths: int = 4):
+        # Initialize gear configuration
+        self.gears: List[MemoryGear] = []
+        self._setup_gears(num_gears)
+        
+        # Initialize logic paths
+        self.logic_paths: List[LogicPath] = [LogicPath() for _ in range(num_paths)]
+        
+        # Crystallization components
+        self.crystallization_chamber = CrystallizationChamber()
+        self.current_insights: List[Any] = []
+        self.perfect_node: Optional[Node] = None
+
+    def _setup_gears(self, num_gears: int):
+        """Setup gear network with connections."""
+        # Create gears with varying capacities
+        capacities = [10 + i * 5 for i in range(num_gears)]
+        self.gears = [MemoryGear(weight=0, capacity=cap) for cap in capacities]
+        
+        # Create gear connections (each connects to next and previous)
+        for i in range(num_gears):
+            if i > 0:
+                self.gears[i].connected_gears.append(self.gears[i-1])
+            if i < num_gears - 1:
+                self.gears[i].connected_gears.append(self.gears[i+1])
+
+    def process_node_dump(self, node_dump: List[Any]) -> List[Any]:
+        """Process data dumped from a node through the mechanical system."""
+        insights = []
+        
+        # Distribute data across gears
+        for data in node_dump:
+            data = self._filter_data(data)  # Apply engine-specific filtering
+            
+            # Add to first available gear
+            for gear in self.gears:
+                if gear.weight < gear.capacity:
+                    if gear.add_data(data):
+                        # If gear rotated, update logic paths
+                        gear_positions = [g.position for g in self.gears]
+                        for path in self.logic_paths:
+                            path.shift_position(gear_positions)
+                            new_insights = path.generate_insights([data])
+                            insights.extend(new_insights)
+                    break
+        
+        self.current_insights.extend(insights)
+        return insights
+
+    def crystallize(self, nodes: List[Node]) -> Node:
+        """
+        Crystallize current insights and nodes into a perfect representative node.
+        """
+        return self.crystallization_chamber.crystallize(
+            nodes,
+            self.current_insights,
+            self.gears,
+            self.logic_paths
+        )
+
+    def _filter_data(self, data: Any) -> Any:
+        """Engine-specific data filtering. Implemented by subclasses."""
+        raise NotImplementedError
+
+class KaleidoscopeEngine(BaseEngine):
+    """
+    Ethically constrained engine that produces pure insights through
+    mechanical data processing.
+    """
+    
+    def _filter_data(self, data: Any) -> Any:
+        """Apply ethical constraints to data."""
+        if isinstance(data, dict):
+            # Example ethical filtering
+            filtered_data = data.copy()
+            # Remove or modify potentially harmful patterns
+            if 'risk_factor' in filtered_data:
+                filtered_data['risk_factor'] = min(filtered_data['risk_factor'], 0.8)
+            if 'impact' in filtered_data:
+                filtered_data['impact_warning'] = 'Ethically Evaluated'
+            return filtered_data
+        return data
+
+class MirroredEngine(BaseEngine):
+    """
+    Unconstrained engine that explores all possibilities through
+    mechanical data processing.
+    """
+    
+    def _filter_data(self, data: Any) -> Any:
+        """No ethical filtering, but may amplify certain patterns."""
+        if isinstance(data, dict):
+            # Example pattern amplification
+            amplified_data = data.copy()
+            if 'risk_factor' in amplified_data:
+                amplified_data['risk_factor'] *= 1.2  # Amplify risks
+            if 'impact' in amplified_data:
+                amplified_data['impact_warning'] = 'Unconstrained Analysis'
+            return amplified_data
+        return data
+
+@dataclass
+class CrystallizationChamber:
+    """
+    Handles the crystallization process that creates perfect representative nodes.
+    """
+    energy_field: float = 100.0
+    crystallization_rate: float = 0.0
+    pattern_stability: float = 0.0
+    
+    def crystallize(
+        self,
+        nodes: List[Node],
+        insights: List[Any],
+        gears: List[MemoryGear],
+        paths: List[LogicPath]
+    ) -> Node:
+        """
+        Crystallize nodes and insights into a perfect representative node.
+        """
+        # Initialize crystallization field
+        self._init_crystallization_field(nodes)
+        
+        # Create perfect node
+        perfect_node = Node(memory_threshold=float('inf'))
+        
+        # Combine node patterns
+        combined_patterns = self._combine_node_patterns(nodes)
+        
+        # Integrate insights
+        stabilized_insights = self._stabilize_insights(insights, gears, paths)
+        
+        # Imprint combined patterns and insights
+        for pattern in combined_patterns:
+            perfect_node.gather_data(pattern)
+        for insight in stabilized_insights:
+            perfect_node.gather_insight(insight)
+        
+        # Finalize crystallization
+        perfect_node.processing_capacity = self._calculate_final_capacity(nodes)
+        perfect_node.energy_level = self.energy_field
+        
+        return perfect_node
+    
+    def _init_crystallization_field(self, nodes: List[Node]):
+        """Initialize the crystallization energy field."""
+        total_energy = sum(node.energy_level for node in nodes)
+        total_capacity = sum(node.processing_capacity for node in nodes)
+        self.energy_field = total_energy * total_capacity
+        self.crystallization_rate = len(nodes) * 0.1
+    
+    def _combine_node_patterns(self, nodes: List[Node]) -> List[Any]:
+        """Combine patterns from all nodes."""
+        all_patterns = []
+        for node in nodes:
+            all_patterns.extend(node.memory)
+        
+        # Group similar patterns
+        grouped_patterns = {}
+        for pattern in all_patterns:
+            pattern_hash = str(sorted(pattern.items())) if isinstance(pattern, dict) else str(pattern)
+            if pattern_hash not in grouped_patterns:
+                grouped_patterns[pattern_hash] = []
+            grouped_patterns[pattern_hash].append(pattern)
+        
+        # Combine grouped patterns
+        combined_patterns = []
+        for patterns in grouped_patterns.values():
+            if isinstance(patterns[0], dict):
+                combined = self._combine_dict_patterns(patterns)
+            else:
+                combined = patterns[0]  # Use first for non-dict patterns
+            combined_patterns.append(combined)
+        
+        return combined_patterns
+    
+    def _combine_dict_patterns(self, patterns: List[Dict]) -> Dict:
+        """Combine multiple dictionary patterns into one."""
+        combined = {}
+        for key in patterns[0].keys():
+            values = [p[key] for p in patterns if key in p]
+            if all(isinstance(v, (int, float)) for v in values):
+                combined[key] = sum(values) / len(values)
+            else:
+                combined[key] = max(values, key=values.count)
+        return combined
+    
+    def _stabilize_insights(
+        self,
+        insights: List[Any],
+        gears: List[MemoryGear],
+        paths: List[LogicPath]
+    ) -> List[Any]:
+        """Stabilize insights based on gear positions and path states."""
+        stabilized = []
+        
+        # Calculate stability field from gear positions
+        gear_positions = [g.position for g in gears]
+        stability_field = sum(gear_positions) / len(gear_positions)
+        
+        # Use path positions to modify insights
+        path_positions = [p.position for p in paths]
+        
+        for insight in insights:
+            if isinstance(insight, dict):
+                stabilized_insight = self._stabilize_dict_insight(
+                    insight, stability_field, path_positions
+                )
+                stabilized.append(stabilized_insight)
+            else:
+                stabilized.append(insight)
+        
+        return stabilized
+    
+    def _stabilize_dict_insight(
+        self,
+        insight: Dict,
+        stability_field: float,
+        path_positions: List[float]
+    ) -> Dict:
+        """Stabilize a dictionary insight."""
+        stabilized = insight.copy()
+        
+        # Apply stability field
+        for key, value in stabilized.items():
+            if isinstance(value, (int, float)):
+                # Modify numerical values based on stability
+                stability_factor = (stability_field % 90) / 90  # 0 to 1
+                stabilized[key] = value * (1 + stability_factor)
+        
+        # Add stability metadata
+        stabilized['stability_field'] = stability_field
+        stabilized['path_influence'] = sum(path_positions) / len(path_positions)
+        
+        return stabilized
+    
+    def _calculate_final_capacity(self, nodes: List[Node]) -> float:
+        """Calculate the processing capacity of the perfect node."""
+        base_capacity = sum(node.processing_capacity for node in nodes)
+        return base_capacity * (1 + self.crystallization_rate)
+
+class DualEngineSystem:
+    """
+    System that runs both Kaleidoscope and Mirrored engines in parallel.
+    """
+    
+    def __init__(self):
+        self.kaleidoscope = KaleidoscopeEngine()
+        self.mirrored = MirroredEngine()
+        self.node_clusters: List[Dict[str, List[Node]]] = []
+    
+    def process_data(self, nodes: List[Node]) -> Tuple[Node, Node]:
+        """
+        Process nodes through both engines to create perfect representative nodes.
+        """
+        # Process through Kaleidoscope Engine
+        k_insights = []
+        for node in nodes:
+            if node.should_dump():
+                k_insights.extend(
+                    self.kaleidoscope.process_node_dump(node.dump_memory())
+                )
+        k_perfect_node = self.kaleidoscope.crystallize(nodes)
+        
+        # Process through Mirrored Engine
+        m_insights = []
+        for node in nodes:
+            if node.should_dump():
+                m_insights.extend(
+                    self.mirrored.process_node_dump(node.dump_memory())
+                )
+        m_perfect_node = self.mirrored.crystallize(nodes)
+        
+        return k_perfect_node, m_perfect_node
+    
+    def create_cluster(self, node_pairs: List[Tuple[Node, Node]]):
+        """Create a cluster from pairs of perfect nodes."""
+        cluster = {
+            'kaleidoscope': [pair[0] for pair in node_pairs],
+            'mirrored': [pair[1] for pair in node_pairs]
+        }
+        self.node_clusters.append(cluster)
+        return cluster
+    
+    def simulate_cluster_interaction(
+        self,
+        cluster1: Dict[str, List[Node]],
+        cluster2: Dict[str, List[Node]]
+    ) -> Dict:
+        """
+        Simulate interaction between two clusters.
+        Returns both ethical and unconstrained outcomes.
+        """
+        results = {
+            'kaleidoscope_interaction': self._simulate_ethical_interaction(
+                cluster1['kaleidoscope'],
+                cluster2['kaleidoscope']
+            ),
+            'mirrored_interaction': self._simulate_unconstrained_interaction(
+                cluster1['mirrored'],
+                cluster2['mirrored']
+            )
+        }
+        return results
+    
+    def _simulate_ethical_interaction(
+        self,
+        nodes1: List[Node],
+        nodes2: List[Node]
+    ) -> Dict:
+        """Simulate interaction between ethical nodes."""
+        results = {}
+        for n1 in nodes1:
+            for n2 in nodes2:
+                interaction_key = f"{id(n1)}_{id(n2)}"
+                results[interaction_key] = {
+                    'energy_exchange': min(n1.energy_level, n2.energy_level),
+                    'pattern_alignment': self._calculate_pattern_alignment(n1, n2),
+                    'stability_factor': (n1.processing_capacity + n2.processing_capacity) / 2
+                }
+        return results
+    
+    def _simulate_unconstrained_interaction(
+        self,
+        nodes1: List[Node],
+        nodes2: List[Node]
+    ) -> Dict:
+        """Simulate interaction between unconstrained nodes."""
+        results = {}
+        for n1 in nodes1:
+            for n2 in nodes2:
+                interaction_key = f"{id(n1)}_{id(n2)}"
+                results[interaction_key] = {
+                    'energy_exchange': max(n1.energy_level, n2.energy_level),
+                    'pattern_alignment': self._calculate_pattern_alignment(n1, n2) * 1.5,
+                    'stability_factor': (n1.processing_capacity * n2.processing_capacity)
+                }
+        return results
+    
+    def _calculate_pattern_alignment(self, node1: Node, node2: Node) -> float:
+        """Calculate how well patterns between two nodes align."""
+        # Simple pattern alignment calculation
+        # Could be enhanced based on specific pattern types
+        common_patterns = set(str(p) for p in node1.memory) & set(str(p) for p in node2.memory)
+        total_patterns = set(str(p) for p in node1.memory) | set(str(p) for p in node2.memory)
+        
+        if not total_patterns:
+            return 0.0
+        
+        return len(common_patterns) / len(total_patterns)
+
+# Example usage
+if __name__ == "__main__":
+    # Initialize dual engine system
+    system = DualEngineSystem()
+    
+    # Create test nodes with cancer cell data
+    test_nodes = [
+        Node(memory_threshold=5) for _ in range(3)
+    ]
+    
+    # Add test data to nodes
+    cancer_data = [
+        {"type": "cancer_cell", "size": 15, "growth_rate": 0.8, "risk_factor": 0.9},
+        {"type": "cancer_cell", "size": 12, "growth_rate": 0.7, "risk_factor": 0.85},
+        {"type": "cancer_cell", "size": 18, "growth_rate": 0.9, "risk_factor": 0.95}
+    ]
+    
+    for i, node in enumerate(test_nodes):
+        node.gather_data(cancer_data[i])
+    
+    # Process nodes through both engines
+    k_node, m_node = system.process_data(test_nodes)
+    
+    # Create a cluster
+    cluster1 = system.create_cluster([(k_node, m_node)])
+    
+    # Create test nodes with chemical compound data
+    compound_nodes = [
+        Node(memory_threshold=5) for _ in range(3)
+    ]
+    
+    compoun

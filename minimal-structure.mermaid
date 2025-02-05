@@ -1,0 +1,23 @@
+graph TD
+    A[kaleidoscope_core] --> B[dna]
+    A --> C[nodes]
+    A --> D[memory]
+    A --> E[engine]
+
+    B --> BA[structure.py]
+    B --> BB[traits.py]
+
+    C --> CA[pure_node.py]
+    C --> CB[processing_node.py]
+
+    D --> DA[memory_graph.py]
+    D --> DB[memory_bank.py]
+    D --> DC[pathways.py]
+
+    E --> EA[kaleidoscope_engine.py]
+
+    %% Essential supporting files
+    A --> F[requirements.txt]
+    A --> G[setup.py]
+    A --> H[config]
+    H --> HA[default.yml]

@@ -1,0 +1,1375 @@
+### EnvironmentSimulation.py ###
+# Kaleidoscope AI: Environment Simulation
+# File: /simulation/EnvironmentSimulation.py
+
+import numpy as np
+from typing import List
+from collections import deque
+from core.NodeCore import Node
+
+class Environment:
+    """Simulates the environment where nodes operate and evolve."""
+    def __init__(self, initial_resources: float = 1000.0):
+        self.resources = initial_resources
+        self.nodes: List[Node] = []
+        self.time = 0
+        self.resource_history = deque(maxlen=1000)
+
+    def add_node(self, node: Node):
+        """Add a new node to the environment."""
+        self.nodes.append(node)
+        print(f"Node {node.id} added to the environment.")
+
+    def simulate_step(self):
+        """Simulate a single step in the environment."""
+        self.time += 1
+        for node in list(self.nodes):
+            # Provide resources to nodes
+            self._provide_resources(node)
+
+            # Generate data input for the node
+            data = self._generate_input_data()
+            node.process_input(data)
+
+            # Handle node replication
+            if self._should_replicate(node):
+                new_node = node.replicate()
+                if new_node:
+                    self.add_node(new_node)
+
+            # Remove nodes that run out of energy
+            if node.energy <= 0:
+                print(f"Node {node.id} removed due to energy depletion.")
+                self.nodes.remove(node)
+
+        # Record resource usage
+        self.resource_history.append(self.resources)
+
+    def _provide_resources(self, node: Node):
+        """Allocate resources to a node based on its efficiency."""
+        if self.resources > 0:
+            resource_allocation = min(5.0, self.resources) * node.traits.energy_efficiency
+            self.resources -= resource_allocation
+            node.energy += resource_allocation
+        else:
+            node.energy -= 0.1  # Penalty for insufficient resources
+
+    def _generate_input_data(self):
+        """Generate random input data for nodes."""
+        return {
+            "input1": f"RandomText_{np.random.randint(1000)}",
+            "input2": f"AdditionalData_{np.random.randint(1000)}",
+            "numbers": list(np.random.randint(1, 100, size=5))
+        }
+
+    def _should_replicate(self, node: Node) -> bool:
+        """Determine if a node should replicate."""
+        return (
+            node.growth_state.maturity >= 0.8
+            and node.energy > 20.0
+            and len(self.nodes) < 100
+        )
+
+    def visualize(self):
+        """Visualize the environment's state."""
+        print(f"Time: {self.time}, Total Nodes: {len(self.nodes)}, Resources: {self.resources:.2f}")
+        for node in self.nodes:
+            print(f"Node {node.id}: Energy={node.energy:.2f}, Maturity={node.growth_state.maturity:.2f}, Knowledge={node.growth_state.knowledge:.2f}")
+
+# Example Usage
+if __name__ == "__main__":
+    environment = Environment()
+
+    # Create initial nodes
+    initial_node = Node()
+    environment.add_node(initial_node)
+
+    # Simulate multiple steps
+    for _ in range(10):
+        environment.simulate_step()
+        environment.visualize()
+### GlobalEthicsSystem.py ###
+from typing import Dict, List, Optional, Callable, Set, Tuple
+from dataclasses import dataclass, field
+import numpy as np
+import networkx as nx
+from datetime import datetime
+import logging
+from collections import defaultdict
+
+@dataclass
+class EthicalPrinciple:
+    """Represents a fundamental ethical principle with evolving understanding."""
+    principle_id: str
+    description: str
+    weight: float = 1.0
+    confidence: float = 0.5
+    dependencies: Set[str] = field(default_factory=set)
+    contradictions: Set[str] = field(default_factory=set)
+    applications: int = 0
+    success_rate: float = 1.0
+    context_sensitivity: Dict[str, float] = field(default_factory=dict)
+
+@dataclass
+class EthicalViolation:
+    """Detailed representation of an ethical violation."""
+    violation_id: str
+    timestamp: datetime
+    principle_id: str
+    severity: float
+    context: Dict
+    entity_id: str
+    resolution_status: str = "pending"
+    impact_assessment: Dict = field(default_factory=dict)
+    mitigation_steps: List[str] = field(default_factory=list)
+
+class EthicalMemory:
+    """Maintains and learns from ethical decisions and their consequences."""
+    def __init__(self):
+        self.decisions = []
+        self.consequences = defaultdict(list)
+        self.learning_rate = 0.1
+        
+    def record_decision(self, decision: Dict, context: Dict):
+        """Record an ethical decision and its context."""
+        self.decisions.append({
+            "decision": decision,
+            "context": context,
+            "timestamp": datetime.now(),
+            "outcome_pending": True
+        })
+        
+    def update_consequence(self, decision_id: str, consequence: Dict):
+        """Record the consequence of a previous decision."""
+        self.consequences[decision_id].append({
+            "impact": consequence,
+            "timestamp": datetime.now()
+        })
+        
+        # Update learning rate based on consequence severity
+        severity = consequence.get("severity", 0.5)
+        self.learning_rate = max(0.01, min(0.5, self.learning_rate * (1 + severity - 0.5)))
+
+class GlobalEthicsSystem:
+    """Advanced ethical reasoning and enforcement system with dynamic learning."""
+    
+    def __init__(self):
+        self.principles: Dict[str, EthicalPrinciple] = {}
+        self.violations: List[EthicalViolation] = []
+        self.ethical_memory = EthicalMemory()
+        self.principle_graph = nx.DiGraph()
+        self.context_history: List[Dict] = []
+        self.decision_threshold = 0.7
+        
+        # Initialize core ethical principles
+        self._initialize_core_principles()
+
+    def _initialize_core_principles(self):
+        """Initialize fundamental ethical principles with their relationships."""
+        core_principles = [
+            ("autonomy", "Respect for individual node autonomy and self-determination"),
+            ("beneficence", "Promote the wellbeing and optimal functioning of the system"),
+            ("non_maleficence", "Avoid harmful actions and negative impacts"),
+            ("justice", "Ensure fair distribution of resources and opportunities"),
+            ("sustainability", "Maintain long-term system viability and resource balance")
+        ]
+        
+        for principle_id, description in core_principles:
+            self.add_principle(principle_id, description)
+            
+        # Define principle relationships
+        self._establish_principle_relationships()
+
+    def add_principle(self, principle_id: str, description: str, 
+                     dependencies: Set[str] = None, weight: float = 1.0):
+        """Add a new ethical principle with its relationships."""
+        if principle_id in self.principles:
+            raise ValueError(f"Principle {principle_id} already exists")
+            
+        principle = EthicalPrinciple(
+            principle_id=principle_id,
+            description=description,
+            weight=weight,
+            dependencies=dependencies or set()
+        )
+        
+        self.principles[principle_id] = principle
+        self.principle_graph.add_node(principle_id, 
+                                    weight=weight,
+                                    applications=0)
+        
+        # Add dependencies to graph
+        if dependencies:
+            for dep in dependencies:
+                if dep in self.principles:
+                    self.principle_graph.add_edge(principle_id, dep)
+
+    def _establish_principle_relationships(self):
+        """Define relationships and potential conflicts between principles."""
+        relationships = [
+            ("autonomy", "beneficence", 0.5),    # Sometimes conflicts
+            ("beneficence", "non_maleficence", 0.8),  # Strong alignment
+            ("justice", "sustainability", 0.7),   # Moderate alignment
+            ("autonomy", "justice", 0.6)         # Moderate alignment
+        ]
+        
+        for p1, p2, strength in relationships:
+            self.principle_graph.add_edge(p1, p2, weight=strength)
+            
+    def validate_action(self, action: Dict, context: Dict) -> Tuple[bool, Dict]:
+        """
+        Validate an action against ethical principles with context awareness.
+        Returns validation result and detailed analysis.
+        """
+        validation_scores = {}
+        total_weight = 0
+        
+        # Record context for learning
+        self.context_history.append(context)
+        
+        for principle in self.principles.values():
+            # Calculate principle weight based on context
+            context_weight = self._calculate_context_weight(principle, context)
+            effective_weight = principle.weight * context_weight
+            
+            # Evaluate action against principle
+            score = self._evaluate_principle_compliance(action, principle, context)
+            validation_scores[principle.principle_id] = score
+            total_weight += effective_weight
+            
+            # Update principle metrics
+            principle.applications += 1
+            principle.success_rate = (principle.success_rate * (principle.applications - 1) + 
+                                    (score >= self.decision_threshold)) / principle.applications
+            
+        # Calculate weighted average score
+        if total_weight > 0:
+            final_score = sum(score * self.principles[pid].weight 
+                            for pid, score in validation_scores.items()) / total_weight
+        else:
+            final_score = 0
+            
+        # Record decision
+        self.ethical_memory.record_decision({
+            "action": action,
+            "validation_scores": validation_scores,
+            "final_score": final_score
+        }, context)
+        
+        is_valid = final_score >= self.decision_threshold
+        
+        if not is_valid:
+            self._handle_violation(action, validation_scores, context)
+            
+        return is_valid, {
+            "scores": validation_scores,
+            "final_score": final_score,
+            "context_influence": context_weight,
+            "principle_updates": self._get_principle_updates()
+        }
+
+    def _calculate_context_weight(self, principle: EthicalPrinciple, 
+                                context: Dict) -> float:
+        """Calculate principle weight modification based on context."""
+        base_weight = 1.0
+        
+        for context_key, context_value in context.items():
+            if context_key in principle.context_sensitivity:
+                sensitivity = principle.context_sensitivity[context_key]
+                base_weight *= (1 + sensitivity * (context_value - 0.5))
+                
+        return np.clip(base_weight, 0.1, 2.0)
+
+    def _evaluate_principle_compliance(self, action: Dict, 
+                                    principle: EthicalPrinciple,
+                                    context: Dict) -> float:
+        """Evaluate how well an action complies with a principle."""
+        # Get related principles
+        related_principles = list(nx.descendants(self.principle_graph, 
+                                               principle.principle_id))
+        
+        # Base compliance score
+        compliance = self._calculate_base_compliance(action, principle)
+        
+        # Adjust for principle relationships
+        for related in related_principles:
+            if related in self.principles:
+                related_score = self._calculate_base_compliance(action, 
+                                                             self.principles[related])
+                edge_weight = self.principle_graph[principle.principle_id][related]['weight']
+                compliance = (compliance + edge_weight * related_score) / (1 + edge_weight)
+                
+        # Context modification
+        context_factor = self._calculate_context_weight(principle, context)
+        compliance *= context_factor
+        
+        return np.clip(compliance, 0, 1)
+
+    def _calculate_base_compliance(self, action: Dict, 
+                                 principle: EthicalPrinciple) -> float:
+        """Calculate base compliance score for an action against a principle."""
+        # Implementation would depend on specific principle evaluations
+        # This is a placeholder for demonstration
+        return 0.8  # Default high compliance
+
+    def _handle_violation(self, action: Dict, scores: Dict, context: Dict):
+        """Handle and record an ethical violation."""
+        violation = EthicalViolation(
+            violation_id=f"v_{len(self.violations)}",
+            timestamp=datetime.now(),
+            principle_id=min(scores.items(), key=lambda x: x[1])[0],
+            severity=1 - min(scores.values()),
+            context=context,
+            entity_id=action.get("entity_id", "unknown")
+        )
+        
+        self.violations.append(violation)
+        
+        # Trigger mitigation planning
+        self._plan_violation_mitigation(violation)
+
+    def _plan_violation_mitigation(self, violation: EthicalViolation):
+        """Plan mitigation steps for an ethical violation."""
+        # Analyze violation severity and context
+        violation.impact_assessment = self._assess_violation_impact(violation)
+        
+        # Generate mitigation steps
+        mitigation_steps = []
+        
+        if violation.severity > 0.7:
+            mitigation_steps.append("Immediate action suspension")
+            mitigation_steps.append("System-wide alert")
+        
+        mitigation_steps.append(f"Review of {violation.principle_id} principle application")
+        mitigation_steps.append("Context analysis for future prevention")
+        
+        violation.mitigation_steps = mitigation_steps
+
+    def _assess_violation_impact(self, violation: EthicalViolation) -> Dict:
+        """Assess the potential impact of an ethical violation."""
+        return {
+            "immediate_severity": violation.severity,
+            "principle_impact": self.principles[violation.principle_id].weight,
+            "system_wide_effect": len(self.principle_graph[violation.principle_id]) / 
+                                 len(self.principles),
+            "context_sensitivity": len(violation.context) / 
+                                 len(self.context_history[-1]) if self.context_history else 0
+        }
+
+    def _get_principle_updates(self) -> Dict[str, Dict]:
+        """Get updates on principle learning and adaptation."""
+        return {
+            pid: {
+                "success_rate": p.success_rate,
+                "applications": p.applications,
+                "context_sensitivity": p.context_sensitivity
+            }
+            for pid, p in self.principles.items()
+        }
+
+    def update_learning(self, feedback: Dict):
+        """Update ethical understanding based on feedback."""
+        for principle_id, impact in feedback.items():
+            if principle_id in self.principles:
+                principle = self.principles[principle_id]
+                principle.confidence = (principle.confidence + 
+                                     self.ethical_memory.learning_rate * 
+                                     (impact - principle.confidence))
+                
+                # Update context sensitivity
+                for context_key, context_impact in feedback.get("context_impacts", {}).items():
+                    if context_key not in principle.context_sensitivity:
+                        principle.context_sensitivity[context_key] = 0
+                    principle.context_sensitivity[context_key] += (
+                        self.ethical_memory.learning_rate * context_impact
+                    )
+### KaleidoscopeEngine.py ###
+from typing import Dict, List, Any, Callable, Optional, Tuple
+import numpy as np
+from scipy.sparse import csr_matrix
+from scipy.fft import fft2, ifft2
+import networkx as nx
+from dataclasses import dataclass, field
+from datetime import datetime
+import logging
+
+@dataclass
+class FieldState:
+    """Quantum-inspired field state for information processing."""
+    energy_density: np.ndarray
+    phase_field: np.ndarray
+    coherence: float = 1.0
+    resonance_patterns: Dict[str, np.ndarray] = field(default_factory=dict)
+
+    def evolve(self, dt: float):
+        """Evolve field state using quantum-inspired dynamics."""
+        # Phase evolution
+        self.phase_field += np.gradient(self.energy_density) * dt
+        
+        # Energy diffusion with conservation
+        laplacian = np.gradient(np.gradient(self.energy_density))
+        self.energy_density += np.sum(laplacian) * dt
+        
+        # Update coherence
+        self.coherence = np.mean(np.abs(np.exp(1j * self.phase_field)))
+
+@dataclass
+class GearState:
+    """State information for processing gears."""
+    resonance_pattern: np.ndarray
+    efficiency: float
+    specialization: str
+    entanglement_map: Dict[str, float]
+    
+    def adapt(self, performance: float):
+        """Adapt gear state based on performance."""
+        self.efficiency *= (1.0 + 0.1 * (performance - 0.5))
+        phase_shift = np.exp(1j * performance * np.pi)
+        self.resonance_pattern *= phase_shift
+
+class KaleidoscopeEngine:
+    """
+    Advanced AI engine using quantum-inspired field processing and resonance-based computation.
+    """
+    
+    def __init__(self, field_dimensions: Tuple[int, int] = (64, 64)):
+        # Field state initialization
+        self.field_state = FieldState(
+            energy_density=np.zeros(field_dimensions),
+            phase_field=np.random.random(field_dimensions) * 2 * np.pi
+        )
+        
+        # Processing components
+        self.gears: Dict[str, Callable] = {}
+        self.gear_states: Dict[str, GearState] = {}
+        self.processing_graph = nx.DiGraph()
+        
+        # Memory systems
+        self.field_memory = csr_matrix(field_dimensions, dtype=np.complex128)
+        self.pattern_cache = []
+        self.task_history = []
+        
+        # Adaptive components
+        self.learning_rate = 0.1
+        self.coherence_threshold = 0.7
+        self.resonance_strength = 1.0
+
+    def register_gear(self, gear_name: str, gear_function: Callable[[Dict], Any], 
+                     specialization: str = "general"):
+        """Register a processing gear with quantum properties."""
+        if gear_name in self.gears:
+            raise ValueError(f"Gear '{gear_name}' already exists")
+            
+        self.gears[gear_name] = gear_function
+        
+        # Initialize gear state with quantum properties
+        self.gear_states[gear_name] = GearState(
+            resonance_pattern=self._initialize_resonance_pattern(),
+            efficiency=1.0,
+            specialization=specialization,
+            entanglement_map={}
+        )
+        
+        # Add to processing graph
+        self.processing_graph.add_node(
+            gear_name,
+            state=self.gear_states[gear_name]
+        )
+        
+        # Update field state
+        self._update_field_for_gear(gear_name)
+
+    def _initialize_resonance_pattern(self) -> np.ndarray:
+        """Initialize quantum resonance pattern for a gear."""
+        pattern = np.random.normal(0, 1, self.field_state.energy_density.shape) + \
+                 1j * np.random.normal(0, 1, self.field_state.energy_density.shape)
+        return pattern / np.linalg.norm(pattern)
+
+    def _update_field_for_gear(self, gear_name: str):
+        """Update field state when adding or modifying a gear."""
+        gear_state = self.gear_states[gear_name]
+        
+        # Add gear's resonance pattern to field
+        self.field_state.resonance_patterns[gear_name] = gear_state.resonance_pattern
+        
+        # Update energy density with gear's influence
+        influence = np.abs(gear_state.resonance_pattern) * gear_state.efficiency
+        self.field_state.energy_density += influence
+        
+        # Normalize field
+        total_energy = np.sum(self.field_state.energy_density)
+        if total_energy > 0:
+            self.field_state.energy_density /= total_energy
+
+    def execute_task(self, task: Dict) -> Dict:
+        """Execute task using quantum field processing."""
+        # Create task pattern
+        task_pattern = self._create_task_pattern(task)
+        
+        results = {}
+        try:
+            # Process through quantum field
+            processed_pattern = self._process_through_field(task_pattern)
+            
+            # Distribute to gears based on resonance
+            for gear_name, gear_function in self.gears.items():
+                resonance = self._calculate_resonance(
+                    processed_pattern,
+                    self.gear_states[gear_name].resonance_pattern
+                )
+                
+                if resonance > self.coherence_threshold:
+                    # Process task chunk with quantum influence
+                    chunk = self._create_quantum_chunk(task["data"], resonance)
+                    result = gear_function({
+                        "task_id": task["task_id"],
+                        "data_chunk": chunk,
+                        "quantum_state": {
+                            "resonance": resonance,
+                            "coherence": self.field_state.coherence
+                        }
+                    })
+                    
+                    results[gear_name] = result
+                    
+                    # Update gear state
+                    self.gear_states[gear_name].adapt(resonance)
+                    
+            # Update field state
+            self.field_state.evolve(0.1)
+            
+            # Store in field memory
+            self._store_in_field_memory(task_pattern, results)
+            
+        except Exception as e:
+            logging.error(f"Task execution error: {str(e)}")
+            results['error'] = str(e)
+            
+        # Record history
+        self.task_history.append({
+            "task": task,
+            "results": results,
+            "field_coherence": self.field_state.coherence,
+            "timestamp": datetime.now()
+        })
+        
+        return results
+
+    def _create_task_pattern(self, task: Dict) -> np.ndarray:
+        """Create quantum pattern representation of task."""
+        # Convert task to frequency domain
+        data_str = str(task["data"])
+        data_array = np.array([ord(c) for c in data_str]).reshape(-1, 1)
+        padded = np.pad(data_array, 
+                       ((0, self.field_state.energy_density.shape[0] - len(data_array)), (0, 0)))
+        
+        # Create quantum pattern
+        pattern = fft2(padded)
+        return pattern / (np.linalg.norm(pattern) + 1e-10)
+
+    def _process_through_field(self, pattern: np.ndarray) -> np.ndarray:
+        """Process pattern through quantum field."""
+        # Field interaction
+        field_interaction = pattern * np.exp(1j * self.field_state.phase_field)
+        
+        # Apply quantum effects
+        field_interaction *= np.exp(-1j * self.resonance_strength)
+        
+        return field_interaction
+
+    def _calculate_resonance(self, pattern1: np.ndarray, pattern2: np.ndarray) -> float:
+        """Calculate quantum resonance between patterns."""
+        return float(np.abs(np.sum(pattern1 * np.conj(pattern2))))
+
+    def _create_quantum_chunk(self, data: Any, resonance: float) -> Any:
+        """Create data chunk with quantum influence."""
+        if isinstance(data, str):
+            words = data.split()
+            chunk_size = int(len(words) * resonance)
+            return " ".join(np.random.choice(words, chunk_size))
+        elif isinstance(data, list):
+            chunk_size = int(len(data) * resonance)
+            return list(np.random.choice(data, chunk_size))
+        return data
+
+    def _store_in_field_memory(self, pattern: np.ndarray, results: Dict):
+        """Store results in field memory."""
+        # Create memory pattern
+        memory_pattern = pattern * np.exp(1j * np.angle(self.field_state.phase_field))
+        
+        # Add to field memory
+        self.field_memory = self.field_memory.multiply(0.9) + \
+                          csr_matrix(0.1 * memory_pattern)
+def recognize_patterns(self, data: Any) -> List[Dict]:
+   """Extract patterns using quantum field resonance."""
+   # Create quantum representation
+   data_pattern = self._create_task_pattern({"data": data})
+   
+   # Process through quantum field
+   field_pattern = self._process_through_field(data_pattern)
+   
+   # Detect resonances with stored patterns
+   patterns = []
+   
+   # FFT analysis for frequency patterns
+   fft_pattern = fft2(field_pattern)
+   frequency_components = np.abs(fft_pattern)
+   
+   # Find peaks in frequency spectrum
+   peaks = self._find_spectral_peaks(frequency_components)
+   
+   # Analyze each peak
+   for peak in peaks:
+       # Extract pattern properties
+       frequency = peak["frequency"]
+       amplitude = peak["amplitude"]
+       phase = np.angle(fft_pattern[peak["indices"]])
+       
+       # Calculate pattern significance
+       significance = amplitude * self.field_state.coherence
+       
+       pattern = {
+           "type": "quantum_resonance",
+           "frequency": frequency,
+           "amplitude": amplitude,
+           "phase": phase,
+           "significance": significance,
+           "coherence": self.field_state.coherence
+       }
+       
+       # Add derived properties
+       if isinstance(data, str):
+           pattern.update(self._analyze_text_pattern(data, frequency))
+       elif isinstance(data, (list, np.ndarray)):
+           pattern.update(self._analyze_numerical_pattern(data, frequency))
+           
+       patterns.append(pattern)
+       
+   # Store in pattern cache with quantum signature
+   self.pattern_cache.extend([
+       {**p, "quantum_signature": self._generate_quantum_signature(p)}
+       for p in patterns
+   ])
+   
+   return patterns
+
+def _find_spectral_peaks(self, spectrum: np.ndarray) -> List[Dict]:
+   """Find significant peaks in frequency spectrum."""
+   # Calculate threshold based on mean and std
+   threshold = np.mean(spectrum) + 2 * np.std(spectrum)
+   
+   peaks = []
+   for i in range(1, spectrum.shape[0]-1):
+       for j in range(1, spectrum.shape[1]-1):
+           if spectrum[i,j] > threshold:
+               if self._is_local_maximum(spectrum, i, j):
+                   peaks.append({
+                       "indices": (i,j),
+                       "frequency": np.sqrt(i*i + j*j),
+                       "amplitude": spectrum[i,j]
+                   })
+   
+   return peaks
+
+def _is_local_maximum(self, array: np.ndarray, i: int, j: int) -> bool:
+   """Check if point is local maximum in 3x3 neighborhood."""
+   neighborhood = array[i-1:i+2, j-1:j+2]
+   return array[i,j] == np.max(neighborhood)
+
+def generate_insight(self) -> Dict:
+   """Generate unified insight using quantum field coherence."""
+   if not self.task_history:
+       return {"insight": "Insufficient data for insight generation"}
+       
+   # Calculate field coherence trend
+   coherence_history = [
+       task["field_coherence"] for task in self.task_history
+   ]
+   coherence_trend = np.gradient(coherence_history)
+   
+   # Analyze pattern evolution
+   pattern_evolution = self._analyze_pattern_evolution()
+   
+   # Generate quantum signature for insight
+   quantum_state = {
+       "coherence": self.field_state.coherence,
+       "energy_density": np.mean(self.field_state.energy_density),
+       "phase_alignment": np.mean(np.exp(1j * self.field_state.phase_field))
+   }
+   
+   # Analyze gear performance
+   gear_analysis = self._analyze_gear_performance()
+   
+   # Combine into unified insight
+   insight = {
+       "tasks_processed": len(self.task_history),
+       "unique_patterns": len(self.pattern_cache),
+       "field_state": quantum_state,
+       "pattern_evolution": pattern_evolution,
+       "gear_performance": gear_analysis,
+       "coherence_trend": {
+           "current": coherence_history[-1],
+           "trend": float(coherence_trend[-1]),
+           "stability": float(np.std(coherence_history))
+       }
+   }
+   
+   # Add quantum verification
+   insight["quantum_signature"] = self._generate_quantum_signature(insight)
+   
+   return insight
+
+def _analyze_pattern_evolution(self) -> Dict:
+   """Analyze how patterns evolve over time."""
+   if not self.pattern_cache:
+       return {}
+       
+   # Group patterns by type
+   pattern_groups = {}
+   for pattern in self.pattern_cache:
+       p_type = pattern["type"]
+       if p_type not in pattern_groups:
+           pattern_groups[p_type] = []
+       pattern_groups[p_type].append(pattern)
+       
+   evolution = {}
+   for p_type, patterns in pattern_groups.items():
+       # Track key metrics over time
+       significance_trend = [p["significance"] for p in patterns]
+       coherence_trend = [p["coherence"] for p in patterns]
+       
+       evolution[p_type] = {
+           "count": len(patterns),
+           "avg_significance": float(np.mean(significance_trend)),
+           "significance_trend": float(np.gradient(significance_trend)[-1]),
+           "coherence_stability": float(np.std(coherence_trend))
+       }
+       
+   return evolution
+
+def _analyze_gear_performance(self) -> Dict:
+   """Analyze performance of processing gears."""
+   analysis = {}
+   
+   for gear_name, state in self.gear_states.items():
+       # Calculate key metrics
+       efficiency_trend = state.efficiency
+       resonance_strength = np.mean(np.abs(state.resonance_pattern))
+       entanglement_degree = len(state.entanglement_map)
+       
+       analysis[gear_name] = {
+           "efficiency": float(efficiency_trend),
+           "resonance_strength": float(resonance_strength), 
+           "entanglement_degree": entanglement_degree,
+           "specialization": state.specialization
+       }
+       
+   return analysis
+
+def _generate_quantum_signature(self, data: Dict) -> str:
+   """Generate quantum signature for data verification."""
+   # Convert data to string representation
+   data_str = str(sorted(data.items()))
+   
+   # Create quantum pattern
+   pattern = self._create_task_pattern({"data": data_str})
+   
+   # Process through current field state
+   processed = self._process_through_field(pattern)
+   
+   # Generate signature from processed pattern
+   signature = np.sum(processed * np.exp(1j * self.field_state.phase_field))
+   
+   return str(signature)
+
+def refine_perspectives(self) -> List[Dict]:
+   """Refine perspectives using quantum resonance matching."""
+   refined_perspectives = []
+   
+   # Get current field state signature
+   field_signature = self._generate_quantum_signature({
+       "field_state": self.field_state.energy_density
+   })
+   
+   for perspective in self.perspective_repository:
+       # Generate perspective signature
+       perspective_signature = self._generate_quantum_signature(perspective)
+       
+       # Calculate resonance between signatures
+       resonance = self._calculate_signature_resonance(
+           field_signature, 
+           perspective_signature
+       )
+       
+       if resonance > self.coherence_threshold:
+           # Refine perspective through quantum field
+           refined = {
+               "source": perspective,
+               "resonance": float(resonance),
+               "refinement": self._apply_quantum_refinement(perspective),
+               "quantum_signature": perspective_signature
+           }
+           refined_perspectives.append(refined)
+           
+   return refined_perspectives
+
+def _calculate_signature_resonance(self, sig1: str, sig2: str) -> float:
+   """Calculate resonance between quantum signatures."""
+   # Convert signatures to complex numbers
+   c1 = complex(sig1)
+   c2 = complex(sig2)
+   
+   # Calculate phase alignment
+   phase_diff = np.angle(c1) - np.angle(c2)
+   
+   # Combine amplitude and phase alignment
+   resonance = np.abs(c1) * np.abs(c2) * np.cos(phase_diff)
+   
+   return float(resonance)
+
+def _apply_quantum_refinement(self, perspective: Dict) -> Dict:
+   """Apply quantum field refinement to perspective."""
+   # Create quantum pattern from perspective
+   pattern = self._create_task_pattern({"data": perspective})
+   
+   # Process through quantum field
+   refined_pattern = self._process_through_field(pattern)
+   
+   # Convert back to insight space
+   refined_data = ifft2(refined_pattern).real
+   
+   # Extract refined perspective
+   return {
+       "field_coherence": float(self.field_state.coherence),
+       "refinement_strength": float(np.mean(np.abs(refined_pattern))),
+       "refined_data": refined_data.tolist()
+   }
+### NodeCore.py ###
+# Kaleidoscope AI: Script for Node Core Functionality
+# File: /core/NodeCore.py
+
+import uuid
+import time
+import numpy as np
+from typing import Dict, Optional, List
+from collections import deque
+from dataclasses import dataclass
+
+@dataclass
+class GrowthState:
+    maturity: float = 0.0
+    knowledge: float = 0.0
+    specialization: Optional[str] = None
+
+@dataclass
+class Traits:
+    learning_rate: float = 0.1
+    energy_efficiency: float = 1.0
+    replication_threshold: float = 0.8
+
+class Node:
+    def __init__(self, node_id: Optional[str] = None):
+        self.id = node_id or str(uuid.uuid4())
+        self.creation_time = time.time()
+        self.energy = 10.0
+        self.growth_state = GrowthState()
+        self.traits = Traits()
+
+        # Memory Systems
+        self.short_term_memory = deque(maxlen=100)
+        self.long_term_memory: Dict[str, Dict] = {}
+        self.connections = set()
+
+    def process_input(self, data: Dict) -> Dict:
+        """Process input data, updating knowledge and state."""
+        knowledge_gain = self._analyze_data(data)
+        self._update_growth(knowledge_gain)
+        return {
+            'knowledge_gain': knowledge_gain,
+            'energy_remaining': self.energy,
+            'maturity': self.growth_state.maturity
+        }
+
+    def replicate(self) -> Optional['Node']:
+        """Replicates the node if conditions are met."""
+        if self.energy > 5.0 and self.growth_state.maturity >= self.traits.replication_threshold:
+            self.energy /= 2
+            new_node = Node()
+            new_node.traits = self._mutate_traits()
+            self.connections.add(new_node.id)
+            new_node.connections.add(self.id)
+            return new_node
+        return None
+
+    def _analyze_data(self, data: Dict) -> float:
+        """Analyze input data and calculate knowledge gain."""
+        patterns_detected = self._extract_patterns(data)
+        knowledge_gain = sum(pattern['impact'] for pattern in patterns_detected)
+        energy_cost = knowledge_gain / self.traits.energy_efficiency
+        if self.energy >= energy_cost:
+            self.energy -= energy_cost
+        else:
+            knowledge_gain *= 0.5  # Penalty for insufficient energy
+        return knowledge_gain
+
+    def _extract_patterns(self, data: Dict) -> List[Dict]:
+        """Extract meaningful patterns from data."""
+        patterns = []
+        for key, value in data.items():
+            if isinstance(value, str):
+                length = len(value)
+                patterns.append({'type': 'text', 'impact': length * 0.01})
+            elif isinstance(value, (int, float)):
+                patterns.append({'type': 'numeric', 'impact': abs(value) * 0.01})
+            elif isinstance(value, list) and all(isinstance(i, (int, float)) for i in value):
+                mean_value = np.mean(value)
+                patterns.append({'type': 'numeric_list', 'impact': mean_value * 0.01})
+        return patterns
+
+    def _update_growth(self, knowledge_gain: float):
+        """Update growth state based on knowledge gain."""
+        self.growth_state.knowledge += knowledge_gain
+        self.growth_state.maturity = min(1.0, self.growth_state.maturity + knowledge_gain * self.traits.learning_rate)
+
+    def _mutate_traits(self) -> Traits:
+        """Mutate traits slightly during replication."""
+        new_traits = Traits(
+            learning_rate=max(0.01, self.traits.learning_rate + np.random.normal(0, 0.01)),
+            energy_efficiency=max(0.5, self.traits.energy_efficiency + np.random.normal(0, 0.05)),
+            replication_threshold=min(1.0, self.traits.replication_threshold + np.random.normal(0, 0.02))
+        )
+        return new_traits
+
+    def communicate(self, target_node: 'Node', message: Dict):
+        """Send a message to another node."""
+        if target_node:
+            if target_node.id in self.connections:
+                target_node.receive_message({
+                    'sender': self.id,
+                    'timestamp': time.time(),
+                    'content': message
+                })
+            else:
+                raise ValueError(f"Target node {target_node.id} is not in the connections list.")
+
+    def receive_message(self, message: Dict):
+        """Receive and process a message."""
+        self.short_term_memory.append(message)
+        # Process the message (extend with specific logic as needed)
+
+# Example Usage
+if __name__ == "__main__":
+    node1 = Node()
+    node2 = Node()
+    node1.connections.add(node2.id)
+    node2.connections.add(node1.id)
+
+    data = {"input1": "Example Data", "input2": "More Data", "numbers": [10, 20, 30]}
+    result = node1.process_input(data)
+    print(f"Node 1 Process Result: {result}")
+
+    try:
+        node1.communicate(node2, {"type": "greeting", "message": "Hello, Node 2!"})
+        print("Message successfully sent to Node 2.")
+    except ValueError as e:
+        print(e)
+
+    new_node = node1.replicate()
+    if new_node:
+        print(f"Node {new_node.id} replicated from Node {node1.id}")
+### PredictiveModeling.py ###
+# /engines/PredictiveModeling.py
+
+import numpy as np
+import networkx as nx
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+
+class QuantumPredictiveField:
+    def __init__(self, num_features, num_nodes=50, entanglement_prob=0.8, cluster_prob=0.5, adapt_threshold=0.2, removal_prob=0.2):
+        self.num_nodes = num_nodes
+        self.num_features = num_features
+        self.entanglement_prob = entanglement_prob
+        self.cluster_prob = cluster_prob
+        self.adapt_threshold = adapt_threshold
+        self.removal_prob = removal_prob
+        self.resonance_network = nx.Graph()
+        self.node_states = np.random.rand(num_nodes)  # Represents the quantum state of each node
+        self.node_data = {i: np.random.rand(num_features) for i in range(num_nodes)}
+        self.initialize_network()
+        self.scaler = StandardScaler()
+        self.learning_rate = 0.01
+        self.performance_history = []
+
+    def initialize_network(self):
+        for i in range(self.num_nodes):
+            self.resonance_network.add_node(i, state=self.node_states[i])
+
+        # Create a scale-free network structure
+        self.resonance_network = nx.barabasi_albert_graph(self.num_nodes, min(5, self.num_nodes - 1))
+
+    def inject_pattern(self, X, y):
+        X_transformed = self.apply_quantum_transform(X)
+        y_transformed = (y - y.min()) / (y.max() - y.min())
+
+        for node_id in self.resonance_network.nodes:
+            node_data = self.node_data[node_id]
+            correlations = np.array([np.corrcoef(node_data, x_row)[0, 1] for x_row in X_transformed])
+            best_match_index = np.argmax(correlations)
+
+            error = y_transformed[best_match_index] - self.node_states[node_id]
+            self.node_states[node_id] += self.learning_rate * error
+            self.node_states[node_id] = np.clip(self.node_states[node_id], 0, 1)
+
+            if self.resonance_network.degree(node_id) > 0:
+                neighbors = list(self.resonance_network.neighbors(node_id))
+                for neighbor_id in neighbors:
+                    self.node_states[neighbor_id] += self.learning_rate * error * 0.5
+                    self.node_states[neighbor_id] = np.clip(self.node_states[neighbor_id], 0, 1)
+
+        self._adapt_network_structure(X_transformed, y_transformed)
+
+    def apply_quantum_transform(self, X):
+        X_normalized = self.scaler.fit_transform(X)
+        pca = PCA(n_components=self.num_features)
+        X_pca = pca.fit_transform(X_normalized)
+
+        # Apply a non-linear transformation inspired by quantum state transitions
+        X_transformed = np.sin(X_pca)**2 + np.cos(X_pca)**2  # Example transformation
+        return X_transformed
+
+    def predict(self, X):
+        X_transformed = self.apply_quantum_transform(X)
+        predictions = []
+        uncertainties = []
+
+        for x_row in X_transformed:
+            node_activations = np.array([self._activation_function(x_row, node_id) for node_id in self.resonance_network.nodes])
+            weighted_sum = np.sum(node_activations * self.node_states) / (np.sum(node_activations) + 1e-10)
+            prediction = weighted_sum
+            uncertainty = np.std(node_activations) / (np.max(node_activations) - np.min(node_activations) + 1e-10)
+
+            predictions.append(prediction)
+            uncertainties.append(uncertainty)
+
+        return np.array(predictions), np.array(uncertainties)
+    
+    def _activation_function(self, x_row, node_id):
+        """
+        Calculates the activation of a node based on the input data and the node's stored data.
+        This is a simplified example; you can use more complex functions inspired by
+        neural network activation functions or other mathematical constructs.
+        """
+        # Calculate the Euclidean distance between the input data and the node's data
+        distance = np.linalg.norm(x_row - self.node_data[node_id])
+        
+        # Use a Gaussian-like function to convert distance to activation
+        # The smaller the distance, the higher the activation
+        activation = np.exp(-distance**2 / (2 * self.num_features))
+        
+        return activation
+
+    def _adapt_network_structure(self, X, y):
+        if len(self.performance_history) > 1:
+            delta_performance = self.performance_history[-1] - self.performance_history[-2]
+            if delta_performance < self.adapt_threshold:
+                self._restructure_based_on_clustering(X)
+            else:
+                self._manage_network_size()
+
+    def _restructure_based_on_clustering(self, X):
+        kmeans = KMeans(n_clusters=min(self.num_nodes, len(X)), random_state=42, n_init=10).fit(X)
+        for cluster_id in range(kmeans.n_clusters):
+            cluster_indices = np.where(kmeans.labels_ == cluster_id)[0]
+            if len(cluster_indices) >= 2:
+                node_id = self._find_closest_node(X[cluster_indices])
+                self._entangle_nodes(node_id, cluster_indices, X)
+
+    def _find_closest_node(self, cluster_data):
+        min_distance = float('inf')
+        closest_node = None
+        for node_id, node_data in self.node_data.items():
+            for data_point in cluster_data:
+                distance = np.linalg.norm(node_data - data_point)
+                if distance < min_distance:
+                    min_distance = distance
+                    closest_node = node_id
+        return closest_node
+
+    def _entangle_nodes(self, node_id, cluster_indices, X):
+        for other_node_id in self.resonance_network.nodes:
+            if node_id != other_node_id and np.random.rand() < self.entanglement_prob:
+                self.resonance_network.add_edge(node_id, other_node_id)
+                correlation = np.corrcoef(X[cluster_indices].T)[0, 1]
+                self.node_states[other_node_id] = (1 - correlation) * self.node_states[other_node_id] + correlation * self.node_states[node_id]
+
+    def _manage_network_size(self):
+        if len(self.resonance_network.nodes) >= self.num_nodes * 2 and np.random.rand() < self.removal_prob:
+            node_degrees = np.array([self.resonance_network.degree(node) for node in self.resonance_network.nodes])
+            probabilities = 1 / (node_degrees + 1e-5)
+            probabilities /= probabilities.sum()
+            node_to_remove = np.random.choice(self.resonance_network.nodes, p=probabilities)
+            self.resonance_network.remove_node(node_to_remove)
+            del self.node_data[node_to_remove]
+
+    def adapt(self, performance_metric, learning_rate=0.01):
+        self.performance_history.append(performance_metric)
+
+        # Dynamic learning rate adjustment
+        if len(self.performance_history) > 2:
+            delta_performance = self.performance_history[-1] - self.performance_history[-2]
+            if delta_performance < 0.001:
+                self.learning_rate *= 1.1  # Increase learning rate if progress is slow
+            elif delta_performance > 0.05:
+                self.learning_rate *= 0.9  # Decrease learning rate if progress is too fast
+
+        # Apply changes to node states based on performance
+        for node in self.resonance_network.nodes:
+            # Example adaptation logic (simplified)
+            self.node_states[node] += self.learning_rate * performance_metric
+            self.node_states[node] = np.clip(self.node_states[node], 0, 1)  # Keep state within bounds
+
+        self._adapt_network_structure(X, y)
+### SimulationTest.py ###
+# Kaleidoscope AI: Simulation Test
+# File: /simulation/SimulationTest.py
+
+import numpy as np
+from engines.PredictiveModeling import QuantumPredictiveField
+from visualization.VisualizationTools import VisualizationTools
+import time
+
+# Initialize system components
+num_features = 10  # Number of features in the mock data
+predictive_field = QuantumPredictiveField(num_features=num_features, num_nodes=50)
+visualization_tools = VisualizationTools(num_iterations=50)
+
+# Step 1: Generate Mock Data
+np.random.seed(42)  # For reproducibility
+
+# Mock data for features (100 samples, 10 features each)
+X = np.random.rand(100, num_features) * 10
+# Mock data for targets (100 samples)
+y = np.sin(np.linspace(0, 2 * np.pi, 100)) + np.random.normal(0, 0.1, 100)
+
+# Inject patterns into the Predictive Field
+predictive_field.inject_pattern(X, y)
+
+# Iterate Through Predictions
+performance_history = []
+prediction_history = []
+uncertainty_history = []
+
+for iteration in range(50):
+    start_time = time.time()
+    print(f"Iteration {iteration + 1}")
+
+    # Generate predictions
+    predictions, uncertainties = predictive_field.predict(X)
+
+    # Simulate feedback loop (calculate performance metric, e.g., MSE)
+    mse = np.mean((predictions - y) ** 2)
+    performance_metric = 1 / (1 + mse)  # Normalize to range (0, 1)
+
+    # Store results
+    prediction_history.append(predictions)
+    uncertainty_history.append(uncertainties)
+    performance_history.append(performance_metric)
+
+    # Adapt the predictive field
+    predictive_field.adapt(performance_metric)
+
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+
+    # Visualize Results in real-time
+    visualization_tools.update_performance(performance_metric)
+    visualization_tools.update_uncertainty(uncertainties)
+    visualization_tools.update_resonance_network(predictive_field.resonance_network)
+    visualization_tools.update_iteration_times(elapsed_time)
+
+# Keep the plots open at the end
+visualization_tools.finalize_plots()
+### TaskManager.py ###
+# Kaleidoscope AI: Task Manager Module
+# File: /integration/TaskManager.py
+
+import heapq
+import time
+from typing import Dict, List, Any
+
+class Task:
+    def __init__(self, task_id: str, priority: int, resource_demand: float, data: Dict):
+        self.task_id = task_id
+        self.priority = priority
+        self.resource_demand = resource_demand
+        self.data = data
+        self.timestamp = time.time()
+
+    def __lt__(self, other):
+        return self.priority > other.priority or (self.priority == other.priority and self.timestamp < other.timestamp)
+
+class TaskManager:
+    """Manages tasks, prioritization, and resource allocation."""
+    def __init__(self):
+        self.task_queue: List[Task] = []
+        self.active_tasks: Dict[str, Task] = {}
+
+    def add_task(self, task_id: str, priority: int, resource_demand: float, data: Dict):
+        """Add a new task to the queue."""
+        task = Task(task_id, priority, resource_demand, data)
+        heapq.heappush(self.task_queue, task)
+        print(f"Task {task_id} added with priority {priority} and resource demand {resource_demand}.")
+
+    def assign_task(self, available_resources: float) -> Any:
+        """Assign the highest priority task that fits within available resources."""
+        while self.task_queue:
+            task = heapq.heappop(self.task_queue)
+            if task.resource_demand <= available_resources:
+                self.active_tasks[task.task_id] = task
+                print(f"Task {task.task_id} assigned with priority {task.priority}.")
+                return task
+            else:
+                print(f"Task {task.task_id} requires {task.resource_demand} resources, skipping.")
+                heapq.heappush(self.task_queue, task)  # Reinsert if not assignable
+                break
+        print("No suitable tasks for the current resource availability.")
+        return None
+
+    def complete_task(self, task_id: str):
+        """Mark a task as complete and remove it from active tasks."""
+        if task_id in self.active_tasks:
+            completed_task = self.active_tasks.pop(task_id)
+            print(f"Task {task_id} completed.")
+            return completed_task
+        print(f"Task {task_id} not found in active tasks.")
+        return None
+
+    def reassign_task(self, task_id: str, available_resources: float):
+        """Attempt to reassign a task if its conditions have changed."""
+        if task_id in self.active_tasks:
+            task = self.active_tasks.pop(task_id)
+            print(f"Reassigning Task {task_id}...")
+            self.add_task(task.task_id, task.priority, task.resource_demand, task.data)
+            return self.assign_task(available_resources)
+        print(f"Task {task_id} not found for reassignment.")
+        return None
+
+    def display_queue(self):
+        """Display the current state of the task queue."""
+        print("Task Queue:")
+        for task in sorted(self.task_queue, reverse=True):
+            print(f"Task ID: {task.task_id}, Priority: {task.priority}, Resources: {task.resource_demand}")
+
+    def display_active_tasks(self):
+        """Display the current active tasks."""
+        print("Active Tasks:")
+        for task_id, task in self.active_tasks.items():
+            print(f"Task ID: {task_id}, Priority: {task.priority}, Resources: {task.resource_demand}")
+
+# Example Usage
+if __name__ == "__main__":
+    manager = TaskManager()
+
+    # Adding tasks
+    manager.add_task("task1", priority=5, resource_demand=3.0, data={"info": "Analyze dataset A"})
+    manager.add_task("task2", priority=8, resource_demand=1.5, data={"info": "Generate report B"})
+    manager.add_task("task3", priority=2, resource_demand=4.0, data={"info": "Run simulation C"})
+
+    # Assign tasks with available resources
+    manager.assign_task(available_resources=2.0)
+    manager.assign_task(available_resources=5.0)
+
+    # Complete a task
+    manager.complete_task("task2")
+
+    # Reassign a task
+    manager.reassign_task("task1", available_resources=4.0)
+
+    # Display current queue and active tasks
+    manager.display_queue()
+    manager.display_active_tasks()
+### VisualizationTool.py ###
+# /visualization/VisualizationTools.py
+
+import matplotlib.pyplot as plt
+import networkx as nx
+import time
+
+class VisualizationTools:
+    def __init__(self, num_iterations):
+        self.performance_history = []
+        self.uncertainty_history = []
+        self.num_iterations = num_iterations
+        self.iteration_times = []
+
+        # Pre-allocate the figure and axes for the live plots
+        plt.ion()  # Turn on interactive mode
+        self.fig, self.axs = plt.subplots(2, 2, figsize=(18, 10))
+        plt.tight_layout(pad=4.0)
+
+        # Customize the plots
+        self.axs[0, 0].set_title("Performance Over Iterations")
+        self.axs[0, 0].set_xlabel("Iteration")
+        self.axs[0, 0].set_ylabel("Performance Metric")
+
+        self.axs[0, 1].set_title("Uncertainty Distribution (Current Iteration)")
+        self.axs[0, 1].set_xlabel("Uncertainty")
+        self.axs[0, 1].set_ylabel("Frequency")
+
+        self.axs[1, 0].set_title("Resonance Network")
+        self.axs[1, 0].set_xlabel("Node Position X")  # Assuming a 2D layout for nodes
+        self.axs[1, 0].set_ylabel("Node Position Y")
+
+        self.axs[1, 1].set_title("Iteration Time")
+        self.axs[1, 1].set_xlabel("Iteration")
+        self.axs[1, 1].set_ylabel("Time (seconds)")
+
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+
+    def update_performance(self, performance_metric):
+        self.performance_history.append(performance_metric)
+        self.axs[0, 0].clear()
+        self.axs[0, 0].plot(self.performance_history, marker='o', linestyle='-', color='blue')
+        self.axs[0, 0].set_title("Performance Over Iterations")
+        self.axs[0, 0].set_xlabel("Iteration")
+        self.axs[0, 0].set_ylabel("Performance Metric")
+        self.axs[0, 0].set_xlim([0, self.num_iterations])
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+
+    def update_uncertainty(self, uncertainties):
+        self.uncertainty_history.append(uncertainties)
+        self.axs[0, 1].clear()
+        self.axs[0, 1].hist(uncertainties, bins='auto', alpha=0.7, color='green', edgecolor='black')
+        self.axs[0, 1].set_title("Uncertainty Distribution (Current Iteration)")
+        self.axs[0, 1].set_xlabel("Uncertainty")
+        self.axs[0, 1].set_ylabel("Frequency")
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+
+    def update_resonance_network(self, resonance_network):
+        self.axs[1, 0].clear()
+        pos = nx.spring_layout(resonance_network, seed=42)
+        nx.draw(resonance_network, pos, with_labels=True, node_color='skyblue', node_size=1500, edge_color='gray',
+                linewidths=1, font_size=10, font_weight='bold', alpha=0.9, ax=self.axs[1, 0])
+        self.axs[1, 0].set_title("Resonance Network")
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+
+    def update_iteration_times(self, iteration_time):
+        self.iteration_times.append(iteration_time)
+        self.axs[1, 1].clear()
+        self.axs[1, 1].plot(self.iteration_times, marker='o', linestyle='-', color='purple')
+        self.axs[1, 1].set_title("Iteration Time")
+        self.axs[1, 1].set_xlabel("Iteration")
+        self.axs[1, 1].set_ylabel("Time (seconds)")
+        self.axs[1, 1].set_xlim([0, self.num_iterations])
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+
+    def finalize_plots(self):
+        plt.ioff()  # Turn off interactive mode
+        plt.show()
