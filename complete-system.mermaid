@@ -1,0 +1,68 @@
+graph TD
+    A[kaleidoscope_core] --> B[dna]
+    A --> C[nodes]
+    A --> D[memory]
+    A --> E[engine]
+    A --> F[simulation]
+    A --> G[learning]
+    A --> H[validation]
+
+    B --> BA[structure.py]
+    B --> BB[traits.py]
+    B --> BC[mutation.py]
+    B --> BD[inheritance.py]
+    B --> BE[trait_matrix.py]
+
+    C --> CA[base_node.py]
+    C --> CB[processing_node.py]
+    C --> CC[pure_node.py]
+    C --> CD[node_metrics.py]
+    C --> CE[node_validation.py]
+
+    D --> DA[memory_graph.py]
+    D --> DB[memory_bank.py]
+    D --> DC[pathways.py]
+    D --> DD[temporal_memory.py]
+    D --> DE[memory_optimization.py]
+    D --> DF[cache_manager.py]
+
+    E --> EA[kaleidoscope_engine.py]
+    E --> EB[mirrored_engine.py]
+    E --> EC[logic_gears.py]
+    E --> ED[engine_metrics.py]
+    E --> EE[parallel_processor.py]
+
+    F --> FA[environment.py]
+    F --> FB[cell_simulation.py]
+    F --> FC[chemical_simulation.py]
+    F --> FD[pressure_simulator.py]
+    F --> FE[interaction_simulator.py]
+
+    G --> GA[adaptive.py]
+    G --> GB[pattern_recognition.py]
+    G --> GC[feedback.py]
+    G --> GD[reinforcement.py]
+    G --> GE[evolution_optimizer.py]
+
+    H --> HA[output_validator.py]
+    H --> HB[consistency_checker.py]
+    H --> HC[integrity_monitor.py]
+
+    %% Core C Components
+    A --> I[core_c]
+    I --> IA[node_core.c]
+    I --> IB[engine_core.c]
+    I --> IC[memory_core.c]
+    I --> ID[parallel_core.c]
+    I --> IE[optimization_core.c]
+
+    %% Configuration
+    A --> J[config]
+    J --> JA[default.yml]
+    J --> JB[mirror_config.yml]
+    J --> JC[evolution_params.yml]
+    J --> JD[memory_config.yml]
+
+    %% Dependencies
+    A --> K[requirements.txt]
+    A --> L[setup.py]

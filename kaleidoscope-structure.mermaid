@@ -1,0 +1,111 @@
+graph TD
+    A[kaleidoscope_ai] --> B[src]
+    A --> C[tests]
+    A --> D[docs]
+    A --> E[scripts]
+    A --> F[config]
+    A --> G[ui]
+    A --> H[api]
+    A --> I[lib]
+
+    B --> BA[core]
+    B --> BB[memory]
+    B --> BC[processing]
+    B --> BD[simulation]
+    B --> BE[learning]
+    B --> BF[utils]
+
+    BA --> BAA[dna]
+    BA --> BAB[nodes]
+    BA --> BAC[engine]
+
+    BAA --> BAAA[structure.py]
+    BAA --> BAAB[traits.py]
+
+    BAB --> BABA[base_node.py]
+    BAB --> BABB[processing_node.py]
+    BAB --> BABC[pure_node.py]
+
+    BAC --> BACA[kaleidoscope_engine.py]
+    BAC --> BACB[mirrored_engine.py]
+
+    BB --> BBA[graph.py]
+    BB --> BBB[bank.py]
+    BB --> BBC[pathways.py]
+
+    BC --> BCA[data_ingestion.py]
+    BC --> BCB[task_manager.py]
+    BC --> BCC[resource_manager.py]
+
+    BD --> BDA[environment.py]
+    BD --> BDB[cell_simulation.py]
+    BD --> BDC[chemical_simulation.py]
+
+    BE --> BEA[adaptive.py]
+    BE --> BEB[pattern_recognition.py]
+    BE --> BEC[feedback.py]
+
+    BF --> BFA[logger.py]
+    BF --> BFB[metrics.py]
+    BF --> BFC[validation.py]
+
+    C --> CA[unit]
+    C --> CB[integration]
+    C --> CC[performance]
+
+    CA --> CAA[test_nodes.py]
+    CA --> CAB[test_engine.py]
+    CA --> CAC[test_memory.py]
+
+    CB --> CBA[test_workflow.py]
+    CB --> CBB[test_simulation.py]
+
+    CC --> CCA[test_load.py]
+    CC --> CCB[test_memory_usage.py]
+
+    D --> DA[architecture]
+    D --> DB[api]
+    D --> DC[deployment]
+    D --> DD[development]
+
+    DA --> DAA[overview.md]
+    DA --> DAB[data_flow.md]
+    DA --> DAC[components.md]
+
+    DB --> DBA[endpoints.md]
+
+    DC --> DCA[setup.md]
+    DC --> DCB[configuration.md]
+
+    DD --> DDA[contributing.md]
+    DD --> DDB[coding_standards.md]
+
+    E --> EA[install.sh]
+    E --> EB[build.sh]
+    E --> EC[run_tests.sh]
+    E --> ED[deploy.sh]
+
+    F --> FA[default.yml]
+    F --> FB[development.yml]
+    F --> FC[production.yml]
+
+    G --> GA[src]
+    G --> GB[public]
+
+    GA --> GAA[components]
+    GA --> GAB[pages]
+    GA --> GAC[utils]
+
+    H --> HA[routes]
+    H --> HB[middleware]
+
+    I --> IA[include]
+    I --> IB[src]
+
+    IA --> IAA[node_core.h]
+    IA --> IAB[engine_core.h]
+    IA --> IAC[memory_core.h]
+
+    IB --> IBA[node_core.c]
+    IB --> IBB[engine_core.c]
+    IB --> IBC[memory_core.c]

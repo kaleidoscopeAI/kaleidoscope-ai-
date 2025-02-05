@@ -1,0 +1,144 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include "node_core.h"
+#include "membrane.h"
+#include "task_manager.h"
+#include "kaleidoscope_engine.h"
+#include "mirrored_engine.h"
+#include "memory_graph.h"
+#include "global_ethics_system.h"
+#include "predictive_modeling.h"
+#include "anomaly_detection.h"
+#include "learning_feedback.h"
+#include "behavior_simulation.h"
+#include "collaboration_nodes.h"
+#include "resource_optimization.h"
+#include "data_ingestion.h"
+#include "visualization_tools.h"
+#include "environment_simulation.h"
+#include "self_diagnostic.h"
+
+int main() {
+    printf("\n--- Initializing System Components ---\n");
+
+    // Core Initialization
+    Node* node1 = init_node(1);
+    Node* node2 = init_node(2);
+    Membrane* membrane = create_membrane(1000, 10);
+    add_node_to_membrane(membrane, node1);
+    add_node_to_membrane(membrane, node2);
+
+    // Task Management
+    TaskManager* task_manager = init_task_manager(50);
+
+    // Engine Initialization
+    KaleidoscopeEngine* kaleidoscope_engine = init_kaleidoscope_engine();
+    MirroredEngine* mirrored_engine = init_mirrored_engine();
+
+    // Memory Graph
+    MemoryGraph* memory_graph = init_memory_graph(100);
+
+    // Ethics System
+    GlobalEthicsSystem* ethics_system = init_global_ethics_system(50);
+
+    // Predictive and Anomaly Detection
+    PredictiveModel* predictive_model = init_predictive_model(100);
+    AnomalyDetector* anomaly_detector = init_anomaly_detector(100, 2.0);
+
+    // Learning Feedback
+    LearningFeedbackSystem* learning_feedback = init_learning_feedback_system(100, 0.05);
+
+    // Behavior Simulation
+    BehaviorSimulation* behavior_simulation = init_behavior_simulation(10, 20);
+
+    // Collaboration Nodes
+    CollaborationNode* collab_node = init_collaboration_node(1, 10);
+
+    // Resource Optimization
+    ResourceOptimizer* resource_optimizer = init_resource_optimizer(1000, 1000);
+
+    // Data Ingestion
+    DataIngestionLayer* ingestion_layer = init_data_ingestion_layer(100);
+
+    // Visualization Tools
+    VisualizationTools* visualization_tools = init_visualization_tools(100);
+
+    // Environment Simulation
+    EnvironmentSimulation* environment_simulation = init_environment_simulation(10);
+
+    // Self-Diagnostic System
+    SelfDiagnosticSystem* diagnostic_system = init_self_diagnostic_system(10);
+
+    printf("\n--- Running Simulation Cycles ---\n");
+
+    for (int cycle = 0; cycle < 10; cycle++) {
+        printf("\n--- Cycle %d ---\n", cycle + 1);
+
+        // Simulate Environment Updates
+        update_environment_state(environment_simulation, rand() % 100, rand() % 50);
+        simulate_interaction(environment_simulation, node1->id);
+
+        // Ingest Data
+        ingest_text(ingestion_layer, "Sample text data");
+        double numbers[] = {10, 20, 30, 40};
+        ingest_numerical(ingestion_layer, numbers, 4);
+        ingest_visual(ingestion_layer, "image_data.jpg");
+
+        // Add Tasks
+        Task task = {cycle, 50, 100, "Sample Task"};
+        add_task(task_manager, &task);
+
+        // Allocate Resources
+        allocate_resources(resource_optimizer, node1, 50, 10);
+
+        // Execute Tasks
+        Task* assigned_task = assign_task(task_manager, node1);
+        if (assigned_task) {
+            enforce_ethics(ethics_system, node1->id, &(EthicalDecision){70, 80, 90});
+            process_task(kaleidoscope_engine, assigned_task->task_data);
+        }
+
+        // Update Memory
+        char memory_entry[256];
+        snprintf(memory_entry, sizeof(memory_entry), "Task %d completed by Node %lu", cycle, node1->id);
+        MemoryNode* memory_node = create_memory_node(memory_entry, 80);
+        add_memory_node(memory_graph, memory_node);
+
+        // Simulate Node Behavior
+        simulate_interactions(behavior_simulation);
+        predict_emergent_behavior(behavior_simulation);
+
+        // Update and Visualize Metrics
+        update_metrics(visualization_tools, node1->energy, cycle * 2);
+        display_metrics(visualization_tools);
+
+        // Check Diagnostics
+        check_node_health(diagnostic_system, node1->id, 1, NULL);
+        repair_fault(diagnostic_system, node2->id);
+    }
+
+    printf("\n--- Cleaning Up System Components ---\n");
+
+    // Destroy All Components
+    destroy_node(node1);
+    destroy_node(node2);
+    destroy_membrane(membrane);
+    destroy_task_manager(task_manager);
+    destroy_kaleidoscope_engine(kaleidoscope_engine);
+    destroy_mirrored_engine(mirrored_engine);
+    destroy_memory_graph(memory_graph);
+    destroy_global_ethics_system(ethics_system);
+    destroy_predictive_model(predictive_model);
+    destroy_anomaly_detector(anomaly_detector);
+    destroy_learning_feedback_system(learning_feedback);
+    destroy_behavior_simulation(behavior_simulation);
+    destroy_collaboration_node(collab_node);
+    destroy_resource_optimizer(resource_optimizer);
+    destroy_data_ingestion_layer(ingestion_layer);
+    destroy_visualization_tools(visualization_tools);
+    destroy_environment_simulation(environment_simulation);
+    destroy_self_diagnostic_system(diagnostic_system);
+
+    printf("System simulation completed successfully.\n");
+    return 0;
+}

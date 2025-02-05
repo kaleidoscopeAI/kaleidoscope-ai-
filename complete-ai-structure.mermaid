@@ -1,0 +1,55 @@
+graph TD
+    A[kaleidoscope_ai] --> B[core]
+    A --> C[memory]
+    A --> D[processing]
+    A --> E[learning]
+    A --> F[api]
+    A --> G[interface]
+    A --> H[lib]
+
+    B --> BA[dna]
+    B --> BB[nodes]
+    B --> BC[engine]
+
+    BA --> BAA[structure.py]
+    BA --> BAB[traits.py]
+    BA --> BAC[inheritance.py]
+    BA --> BAD[mutation.py]
+
+    BB --> BBA[base_node.py]
+    BB --> BBB[processing_node.py]
+    BB --> BBC[pure_node.py]
+    BB --> BBD[node_metrics.py]
+
+    BC --> BCA[kaleidoscope_engine.py]
+    BC --> BCB[mirrored_engine.py]
+    BC --> BCC[parallel_processor.py]
+    BC --> BCD[logic_gears.py]
+
+    C --> CA[graph.py]
+    C --> CB[bank.py]
+    C --> CC[pathways.py]
+    C --> CD[optimization.py]
+    C --> CE[cache_manager.py]
+
+    D --> DA[data_ingestion.py]
+    D --> DB[task_manager.py]
+    D --> DC[resource_manager.py]
+    D --> DD[validator.py]
+
+    E --> EA[adaptive.py]
+    E --> EB[pattern_recognition.py]
+    E --> EC[feedback.py]
+    E --> ED[evolution.py]
+
+    F --> FA[routes]
+    F --> FB[middleware]
+    F --> FC[connectors]
+
+    G --> GA[ui]
+    G --> GB[monitoring]
+    G --> GC[control]
+
+    H --> HA[core]
+    H --> HB[processing]
+    H --> HC[optimization]

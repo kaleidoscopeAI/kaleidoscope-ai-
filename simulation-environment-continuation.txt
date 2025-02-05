@@ -1,0 +1,406 @@
+async def _update_environment(self):
+        """Updates environmental conditions based on system state."""
+        try:
+            # Calculate energy exchange
+            total_kinetic_energy = sum(
+                0.5 * np.sum(v ** 2) for v in self.node_velocities.values()
+            )
+            
+            # Update temperature based on kinetic energy
+            self.conditions.temperature = (
+                298.15 + total_kinetic_energy / (len(self.nodes) * 8.314)
+            )
+            
+            # Update entropy
+            self.conditions.entropy += self._calculate_entropy_change()
+            
+            # Update chemical gradients
+            await self._update_chemical_gradients()
+            
+            # Update energy field
+            self._update_energy_field()
+            
+        except Exception as e:
+            logger.error(f"Environment update error: {str(e)}")
+
+    async def _process_interaction(self, node1_id: str, node2_id: str) -> Optional[Dict[str, Any]]:
+        """Processes interaction between two nodes."""
+        try:
+            node1 = self.nodes[node1_id]
+            node2 = self.nodes[node2_id]
+            
+            # Calculate interaction strength
+            strength = self._calculate_interaction_strength(node1_id, node2_id)
+            
+            if strength > 0.1:  # Interaction threshold
+                # Get positions
+                pos1 = self.node_positions[node1_id]
+                pos2 = self.node_positions[node2_id]
+                
+                # Calculate environmental factors at interaction point
+                interaction_point = (pos1 + pos2) / 2
+                local_conditions = self._get_local_conditions(interaction_point)
+                
+                # Execute interaction
+                result = await node1.simulate_interaction(
+                    node2,
+                    {
+                        "strength": strength,
+                        "conditions": local_conditions,
+                        "position": interaction_point.tolist()
+                    }
+                )
+                
+                if result.get("success", False):
+                    # Update interaction history
+                    self.interaction_matrix[(node1_id, node2_id)] = strength
+                    
+                    # Record reaction
+                    reaction_data = {
+                        "timestamp": datetime.now().isoformat(),
+                        "node1_id": node1_id,
+                        "node2_id": node2_id,
+                        "strength": strength,
+                        "result": result,
+                        "conditions": local_conditions
+                    }
+                    self.reaction_history.append(reaction_data)
+                    
+                    return {
+                        "success": True,
+                        "energy_delta": result.get("energy_change", 0.0),
+                        "entropy_delta": self._calculate_reaction_entropy(result),
+                        "type": "interaction"
+                    }
+                    
+            return {
+                "success": False,
+                "energy_delta": 0.0,
+                "entropy_delta": 0.0,
+                "type": "interaction"
+            }
+            
+        except Exception as e:
+            logger.error(f"Interaction processing error: {str(e)}")
+            return None
+
+    def _calculate_interaction_strength(self, node1_id: str, node2_id: str) -> float:
+        """Calculates the strength of interaction between two nodes."""
+        try:
+            # Get node positions
+            pos1 = self.node_positions[node1_id]
+            pos2 = self.node_positions[node2_id]
+            
+            # Calculate base strength based on distance
+            distance = np.linalg.norm(pos2 - pos1)
+            if distance == 0:
+                return 0.0  # Avoid division by zero
+                
+            base_strength = 1.0 / (1.0 + distance)
+            
+            # Apply environmental modifiers
+            temp_factor = np.exp(-abs(self.conditions.temperature - 298.15) / 100)
+            ph_factor = np.exp(-abs(self.conditions.pH - 7.0) / 2)
+            
+            # Calculate field strength at interaction point
+            field_strength = np.linalg.norm(
+                self._calculate_field_at_point((pos1 + pos2) / 2)
+            )
+            
+            # Combine factors
+            strength = (
+                base_strength *
+                temp_factor *
+                ph_factor *
+                (1.0 + field_strength)
+            )
+            
+            return np.clip(strength, 0.0, 1.0)
+            
+        except Exception as e:
+            logger.error(f"Interaction strength calculation error: {str(e)}")
+            return 0.0
+
+    def _calculate_field_at_point(self, position: np.ndarray) -> np.ndarray:
+        """Calculates the energy field vector at a given point."""
+        try:
+            # Initialize field vector
+            field = np.zeros(3)
+            
+            # Add contribution from each node
+            for node_id, node_pos in self.node_positions.items():
+                displacement = position - node_pos
+                distance = np.linalg.norm(displacement)
+                if distance > 0:
+                    # Field strength decreases with square of distance
+                    direction = displacement / distance
+                    strength = 1.0 / (distance * distance)
+                    field += direction * strength * self.nodes[node_id].state.energy
+                    
+            return field
+            
+        except Exception as e:
+            logger.error(f"Field calculation error: {str(e)}")
+            return np.zeros(3)
+
+    async def _update_positions(self):
+        """Updates positions of all nodes based on velocities and forces."""
+        try:
+            new_positions = {}
+            new_velocities = {}
+            
+            for node_id in self.nodes:
+                # Get current position and velocity
+                position = self.node_positions[node_id]
+                velocity = self.node_velocities[node_id]
+                
+                # Calculate total force
+                force = self._calculate_total_force(node_id)
+                
+                # Update velocity (F = ma, assume mass = 1)
+                new_velocity = velocity + force * self.time_delta
+                
+                # Update position
+                new_position = position + new_velocity * self.time_delta
+                
+                # Apply boundary conditions
+                new_position = np.clip(new_position, 0, self.size)
+                
+                # Store new values
+                new_positions[node_id] = new_position
+                new_velocities[node_id] = new_velocity
+                
+            # Update all positions and velocities
+            self.node_positions = new_positions
+            self.node_velocities = new_velocities
+            
+            # Update spatial index
+            for node_id in self.nodes:
+                self._update_spatial_index(node_id)
+                
+        except Exception as e:
+            logger.error(f"Position update error: {str(e)}")
+
+    def _calculate_total_force(self, node_id: str) -> np.ndarray:
+        """Calculates the total force acting on a node."""
+        try:
+            position = self.node_positions[node_id]
+            
+            # Initialize force vector
+            force = np.zeros(3)
+            
+            # Add field force
+            field = self._calculate_field_at_point(position)
+            force += field * self.nodes[node_id].state.energy
+            
+            # Add interaction forces
+            nearby_nodes = self._get_nearby_nodes(node_id)
+            for other_id in nearby_nodes:
+                if other_id != node_id:
+                    force += self._calculate_interaction_force(node_id, other_id)
+                    
+            # Add random thermal motion
+            thermal_force = np.random.randn(3) * np.sqrt(self.conditions.temperature)
+            force += thermal_force
+            
+            return force
+            
+        except Exception as e:
+            logger.error(f"Force calculation error: {str(e)}")
+            return np.zeros(3)
+
+    def _calculate_interaction_force(self, node1_id: str, node2_id: str) -> np.ndarray:
+        """Calculates the force between two nodes."""
+        try:
+            pos1 = self.node_positions[node1_id]
+            pos2 = self.node_positions[node2_id]
+            
+            # Calculate displacement vector
+            displacement = pos2 - pos1
+            distance = np.linalg.norm(displacement)
+            
+            if distance == 0:
+                return np.zeros(3)
+                
+            # Calculate force magnitude based on interaction strength
+            strength = self._calculate_interaction_strength(node1_id, node2_id)
+            force_magnitude = strength / (distance * distance)
+            
+            # Calculate direction
+            direction = displacement / distance
+            
+            return direction * force_magnitude
+            
+        except Exception as e:
+            logger.error(f"Interaction force calculation error: {str(e)}")
+            return np.zeros(3)
+
+    def _get_local_conditions(self, position: np.ndarray) -> Dict[str, Any]:
+        """Gets environmental conditions at a specific point."""
+        try:
+            local_conditions = self.conditions.to_dict()
+            
+            # Add position-specific modifiers
+            local_conditions.update({
+                "field_strength": np.linalg.norm(
+                    self._calculate_field_at_point(position)
+                ),
+                "local_density": self._calculate_local_density(position),
+                "chemical_concentrations": self._get_local_concentrations(position)
+            })
+            
+            return local_conditions
+            
+        except Exception as e:
+            logger.error(f"Local conditions calculation error: {str(e)}")
+            return self.conditions.to_dict()
+
+    def _calculate_local_density(self, position: np.ndarray, radius: float = 10.0) -> float:
+        """Calculates the local density of nodes around a point."""
+        try:
+            count = 0
+            volume = (4/3) * np.pi * radius**3
+            
+            for node_pos in self.node_positions.values():
+                if np.linalg.norm(node_pos - position) <= radius:
+                    count += 1
+                    
+            return count / volume
+            
+        except Exception as e:
+            logger.error(f"Local density calculation error: {str(e)}")
+            return 0.0
+
+    def _get_local_concentrations(self, position: np.ndarray) -> Dict[str, float]:
+        """Calculates local chemical concentrations."""
+        try:
+            concentrations = {}
+            for chemical, gradient in self.conditions.chemical_gradients.items():
+                # Calculate concentration based on position and gradient
+                base_concentration = gradient * position[2]  # Use height for gradient
+                concentrations[chemical] = max(0.0, base_concentration)
+                
+            return concentrations
+            
+        except Exception as e:
+            logger.error(f"Concentration calculation error: {str(e)}")
+            return {}
+
+    async def _update_chemical_gradients(self):
+        """Updates chemical gradients based on reactions and diffusion."""
+        try:
+            # Process recent reactions
+            recent_reactions = self.reaction_history[-100:]  # Look at last 100 reactions
+            
+            for reaction in recent_reactions:
+                if reaction.get("result", {}).get("chemical_changes"):
+                    changes = reaction["result"]["chemical_changes"]
+                    position = reaction["position"]
+                    
+                    # Update gradients based on changes
+                    for chemical, change in changes.items():
+                        if chemical in self.conditions.chemical_gradients:
+                            current_gradient = self.conditions.chemical_gradients[chemical]
+                            # Adjust gradient based on reaction position and change
+                            self.conditions.chemical_gradients[chemical] = (
+                                0.9 * current_gradient +  # Decay factor
+                                0.1 * change / position[2]  # New contribution
+                            )
+                            
+        except Exception as e:
+            logger.error(f"Chemical gradient update error: {str(e)}")
+
+    def _update_energy_field(self):
+        """Updates the global energy field."""
+        try:
+            # Calculate average energy
+            total_energy = sum(node.state.energy for node in self.nodes.values())
+            avg_energy = total_energy / len(self.nodes) if self.nodes else 0
+            
+            # Update field magnitude based on average energy
+            field_magnitude = np.sqrt(avg_energy)
+            
+            # Create field vector (example: point upward with magnitude)
+            self.conditions.energy_field = np.array([0, 0, field_magnitude])
+            
+        except Exception as e:
+            logger.error(f"Energy field update error: {str(e)}")
+
+    def _calculate_entropy_change(self) -> float:
+        """Calculates the change in system entropy."""
+        try:
+            # Calculate positional entropy
+            positions = np.array(list(self.node_positions.values()))
+            if len(positions) == 0:
+                return 0.0
+                
+            # Calculate spatial distribution entropy
+            spatial_entropy = np.sum([
+                -p * np.log(p) if p > 0 else 0
+                for p in np.histogramdd(positions, bins=10)[0].flat
+            ])
+            
+            # Calculate velocity distribution entropy
+            velocities = np.array(list(self.node_velocities.values()))
+            velocity_entropy = np.sum([
+                -p * np.log(p) if p > 0 else 0
+                for p in np.histogramdd(velocities, bins=10)[0].flat
+            ])
+            
+            # Combine entropies
+            total_entropy = spatial_entropy + velocity_entropy
+            
+            # Calculate change from previous value
+            entropy_change = total_entropy - self.conditions.entropy
+            
+            return entropy_change
+            
+        except Exception as e:
+            logger.error(f"Entropy calculation error: {str(e)}")
+            return 0.0
+
+    def _calculate_reaction_entropy(self, reaction_result: Dict[str, Any]) -> float:
+        """Calculates entropy change from a reaction."""
+        try:
+            # Get reaction parameters
+            energy_change = reaction_result.get("energy_change", 0.0)
+            temperature = self.conditions.temperature
+            
+            # Calculate entropy change (ΔS = ΔQ/T for reversible process)
+            if temperature > 0:
+                entropy_change = abs(energy_change) / temperature
+            else:
+                entropy_change = 0.0
+                
+            return entropy_change
+            
+        except Exception as e:
+            logger.error(f"Reaction entropy calculation error: {str(e)}")
+            return 0.0
+
+    def _update_spatial_index(self, node_id: str):
+        """Updates the spatial index for efficient neighbor lookups."""
+        try:
+            position = self.node_positions[node_id]
+            
+            # Calculate grid cell
+            cell_size = 10.0  # Adjust based on typical interaction range
+            cell_coords = tuple(int(p / cell_size) for p in position)
+            
+            # Remove from old cells
+            for cell in list(self.spatial_index.keys()):
+                if node_id in self.spatial_index[cell]:
+                    self.spatial_index[cell].remove(node_id)
+                    if not self.spatial_index[cell]:
+                        del self.spatial_index[cell]
+                        
+            # Add to new cell
+            if cell_coords not in self.spatial_index:
+                self.spatial_index[cell_coords] = set()
+            self.spatial_index[cell_coords].add(node_id)
+            
+        except Exception as e:
+            logger.error(f"Spatial index update error: {str(e)}")
+
+    def _get_nearby_nodes(self, node_id: str, radius: float = 10.0) -> Set[str]:
+        """Gets nodes within a certain radius using spatial index

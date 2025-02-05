@@ -1,107 +1,87 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "self_diagnostic.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
-// Initialize the Diagnostic System
+// Initialize the Self-Diagnostic System
 SelfDiagnosticSystem* init_self_diagnostic_system(uint64_t max_nodes) {
     SelfDiagnosticSystem* system = (SelfDiagnosticSystem*)malloc(sizeof(SelfDiagnosticSystem));
-    system->node_health = (NodeHealth*)malloc(sizeof(NodeHealth) * max_nodes);
-    system->max_nodes = max_nodes;
-    system->node_count = 0;
+    if (!system) return NULL;
 
-    for (uint64_t i = 0; i < max_nodes; i++) {
-        system->node_health[i].node_id = 0;
-        system->node_health[i].energy = 0;
-        system->node_health[i].is_active = 0;
-        system->node_health[i].faults_detected = 0;
+    system->states = (DiagnosticState*)malloc(sizeof(DiagnosticState) * max_nodes);
+    if (!system->states) {
+        free(system);
+        return NULL;
     }
 
+    for (uint64_t i = 0; i < max_nodes; i++) {
+        system->states[i].node_id = i;
+        system->states[i].is_healthy = 1;
+        system->states[i].last_error = NULL;
+    }
+
+    system->node_count = max_nodes;
     printf("Self-Diagnostic System initialized for %lu nodes.\n", max_nodes);
     return system;
 }
 
-// Register a Node for Monitoring
-void register_node(SelfDiagnosticSystem* system, uint64_t node_id, uint64_t initial_energy) {
-    if (!system || system->node_count >= system->max_nodes) {
-        printf("Self-Diagnostic System: Cannot register node. Maximum capacity reached.\n");
-        return;
-    }
-
-    system->node_health[system->node_count++] = (NodeHealth){
-        .node_id = node_id,
-        .energy = initial_energy,
-        .is_active = 1,
-        .faults_detected = 0
-    };
-
-    printf("Node %lu registered with initial energy %lu.\n", node_id, initial_energy);
-}
-
 // Check Node Health
-int check_node_health(SelfDiagnosticSystem* system, uint64_t node_id) {
-    if (!system) return 0;
+void check_node_health(SelfDiagnosticSystem* system, uint64_t node_id, uint8_t is_healthy, const char* error_message) {
+    if (!system || node_id >= system->node_count) return;
 
-    for (uint64_t i = 0; i < system->node_count; i++) {
-        if (system->node_health[i].node_id == node_id) {
-            NodeHealth* health = &system->node_health[i];
+    DiagnosticState* state = &system->states[node_id];
+    state->is_healthy = is_healthy;
 
-            // Simulate a fault check
-            if (health->energy <= 10) {
-                printf("Node %lu: Low energy detected (%lu). Marking as inactive.\n", node_id, health->energy);
-                health->is_active = 0;
-                health->faults_detected++;
-                return 0; // Node is unhealthy
-            }
-
-            printf("Node %lu: Health check passed. Energy: %lu\n", node_id, health->energy);
-            return 1; // Node is healthy
-        }
+    if (!is_healthy && error_message) {
+        free(state->last_error);
+        state->last_error = strdup(error_message);
+        printf("Node %lu reported an error: %s\n", node_id, error_message);
+    } else {
+        free(state->last_error);
+        state->last_error = NULL;
+        printf("Node %lu is healthy.\n", node_id);
     }
-
-    printf("Node %lu not found in the diagnostic system.\n", node_id);
-    return 0;
 }
 
-// Repair Node Faults
+// Repair Fault
 void repair_fault(SelfDiagnosticSystem* system, uint64_t node_id) {
+    if (!system || node_id >= system->node_count) return;
+
+    DiagnosticState* state = &system->states[node_id];
+    if (!state->is_healthy) {
+        printf("Repairing Node %lu...\n", node_id);
+        free(state->last_error);
+        state->last_error = NULL;
+        state->is_healthy = 1;
+        printf("Node %lu repaired and marked as healthy.\n", node_id);
+    } else {
+        printf("Node %lu is already healthy. No repair needed.\n", node_id);
+    }
+}
+
+// Display Diagnostic Report
+void display_diagnostic_report(SelfDiagnosticSystem* system) {
     if (!system) return;
 
+    printf("\n--- Diagnostic Report ---\n");
     for (uint64_t i = 0; i < system->node_count; i++) {
-        if (system->node_health[i].node_id == node_id) {
-            NodeHealth* health = &system->node_health[i];
-
-            if (!health->is_active) {
-                health->energy += 50; // Restore energy
-                health->is_active = 1;
-                printf("Node %lu: Fault repaired. Energy restored to %lu.\n", node_id, health->energy);
-            } else {
-                printf("Node %lu: No faults detected. No repair needed.\n", node_id);
-            }
-            return;
+        DiagnosticState* state = &system->states[i];
+        printf("Node %lu: %s", state->node_id, state->is_healthy ? "Healthy" : "Faulty");
+        if (!state->is_healthy && state->last_error) {
+            printf(" (Error: %s)", state->last_error);
         }
+        printf("\n");
     }
-
-    printf("Node %lu not found for repair in the diagnostic system.\n", node_id);
+    printf("--------------------------\n");
 }
 
-// Generate System Health Report
-void generate_health_report(SelfDiagnosticSystem* system) {
-    if (!system) return;
-
-    printf("\n--- System Health Report ---\n");
-    for (uint64_t i = 0; i < system->node_count; i++) {
-        NodeHealth* health = &system->node_health[i];
-        printf("Node %lu: Energy = %lu, Active = %d, Faults Detected = %lu\n",
-               health->node_id, health->energy, health->is_active, health->faults_detected);
-    }
-    printf("--- End of Report ---\n");
-}
-
-// Cleanup Diagnostic System
+// Destroy the Self-Diagnostic System
 void destroy_self_diagnostic_system(SelfDiagnosticSystem* system) {
     if (system) {
-        free(system->node_health);
+        for (uint64_t i = 0; i < system->node_count; i++) {
+            free(system->states[i].last_error);
+        }
+        free(system->states);
         free(system);
         printf("Self-Diagnostic System destroyed.\n");
     }

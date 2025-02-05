@@ -1,0 +1,43 @@
+graph TD
+    A[kaleidoscope_core] --> B[dna]
+    A --> C[nodes]
+    A --> D[memory]
+    A --> E[engine]
+    A --> F[simulation]
+    A --> G[learning]
+
+    B --> BA[structure.py]
+    B --> BB[traits.py]
+
+    C --> CA[base_node.py]
+    C --> CB[processing_node.py]
+    C --> CC[pure_node.py]
+
+    D --> DA[memory_graph.py]
+    D --> DB[memory_bank.py]
+    D --> DC[pathways.py]
+
+    E --> EA[kaleidoscope_engine.py]
+    E --> EB[logic_gears.py]
+
+    F --> FA[environment.py]
+    F --> FB[cell_simulation.py]
+    F --> FC[chemical_simulation.py]
+
+    G --> GA[adaptive.py]
+    G --> GB[pattern_recognition.py]
+    G --> GC[feedback.py]
+
+    %% Core Support Files
+    A --> H[core_components]
+    H --> HA[node_core.c]
+    H --> HB[engine_core.c]
+    H --> HC[memory_core.c]
+
+    %% Configuration
+    A --> I[config]
+    I --> IA[default.yml]
+    
+    %% Essential Dependencies
+    A --> J[requirements.txt]
+    A --> K[setup.py]
